@@ -3,14 +3,14 @@ package com.ctrip.platform.dal.cluster.meta;
 /**
  * @author c7ch23en
  */
-public enum DatabaseRole {
+public enum DatabaseCategory {
 
-    MASTER("master"),
-    SLAVE("slave");
+    MYSQL("mysql"),
+    SQLSERVER("sqlserver");
 
     private String name;
 
-    DatabaseRole(String name) {
+    DatabaseCategory(String name) {
         this.name = name;
     }
 

@@ -1,6 +1,6 @@
-package com.ctrip.framework.dal.cluster.config;
+package com.ctrip.platform.dal.cluster.config;
 
-import com.ctrip.framework.dal.cluster.Cluster;
+import com.ctrip.platform.dal.cluster.Cluster;
 
 import java.util.HashMap;
 import java.util.Map;

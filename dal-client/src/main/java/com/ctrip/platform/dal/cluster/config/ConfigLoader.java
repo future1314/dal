@@ -1,6 +1,4 @@
-package com.ctrip.framework.dal.cluster.config;
-
-import com.ctrip.framework.dal.cluster.exception.DalClusterConfigException;
+package com.ctrip.platform.dal.cluster.config;
 
 /**
  * @author c7ch23en

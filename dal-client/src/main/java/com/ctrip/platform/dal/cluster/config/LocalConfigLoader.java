@@ -1,6 +1,6 @@
-package com.ctrip.framework.dal.cluster.config;
+package com.ctrip.platform.dal.cluster.config;
 
-import com.ctrip.framework.dal.cluster.Cluster;
+import com.ctrip.platform.dal.cluster.Cluster;
 
 import java.net.URL;
 import java.util.List;
@@ -10,7 +10,7 @@ import java.util.List;
  */
 public class LocalConfigLoader extends XMLConfigLoader {
 
-    private static final String DEFAULT_FILE_NAME = "dal-cluster-test2.xml";
+    private static final String DEFAULT_FILE_NAME = "dal-cluster-01.xml";
 
     @Override
     public ClusterLocator load() throws Exception {

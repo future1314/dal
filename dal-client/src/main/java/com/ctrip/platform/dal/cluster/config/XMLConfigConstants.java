@@ -1,4 +1,4 @@
-package com.ctrip.framework.dal.cluster.config;
+package com.ctrip.platform.dal.cluster.config;
 
 /**
  * @author c7ch23en
@@ -18,6 +18,7 @@ public interface XMLConfigConstants {
     String DB_SHARD_RULE = "DbShardRule";
     String TABLE_SHARD_RULE = "TableShardRule";
     String TABLE_NAME_PATTERN = "TableNamePattern";
+    String SHARD_STRATEGIES = "ModShardStrategies";
     String MOD_SHARD_STRATEGY = "ModShardStrategy";
     String SHARD_RULES = "ShardRules";
     String SHARD_RULE = "ShardRule";
@@ -33,7 +34,7 @@ public interface XMLConfigConstants {
     String READ_WEIGHTS = "readWeights";
     String SERVER = "server";
     String PORT = "port";
-    String DB = "dbName";
+    String DB = "db";
     String USERNAME = "username";
     String PASSWORD = "password";
     String TAGS = "tags";
@@ -42,5 +43,8 @@ public interface XMLConfigConstants {
     String DB_DEFAULT = "dbDefault";
     String TABLE_DEFAULT = "tableDefault";
     String DEFAULT = "default";
+    String DB_SHARD_KEY = "dbShardKey";
+    String TABLE_SHARD_KEY = "tableShardKey";
+    String TABLE_SHARD_MOD = "tableShards";
 
 }

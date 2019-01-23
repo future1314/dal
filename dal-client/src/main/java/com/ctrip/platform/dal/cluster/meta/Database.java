@@ -1,10 +1,19 @@
 package com.ctrip.platform.dal.cluster.meta;
 
+import javax.sql.DataSource;
+import java.util.Set;
+
 /**
  * @author c7ch23en
  */
 public interface Database {
 
-    DatabaseRole getRole();
+    boolean isMaster();
+
+    boolean containsTag(String tag);
+
+    boolean containsTags(Set<String> tags);
+
+    DataSource getDataSource();
 
 }

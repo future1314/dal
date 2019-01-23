@@ -1,13 +1,12 @@
-package com.ctrip.framework.dal.cluster.config;
+package com.ctrip.platform.dal.cluster.config;
 
-import com.ctrip.framework.dal.cluster.Cluster;
-import com.ctrip.framework.dal.cluster.exception.DalClusterConfigException;
-import com.ctrip.framework.dal.cluster.exception.DalClusterException;
-import com.ctrip.framework.dal.cluster.meta.*;
-import com.ctrip.framework.dal.cluster.strategy.shard.CustomNamePattern;
-import com.ctrip.framework.dal.cluster.strategy.shard.ModShardRule;
-import com.ctrip.framework.dal.cluster.strategy.shard.ModShardStrategy;
-import com.ctrip.framework.dal.cluster.strategy.shard.NoShardRule;
+import com.ctrip.platform.dal.cluster.Cluster;
+import com.ctrip.platform.dal.cluster.exception.DalClusterConfigException;
+import com.ctrip.platform.dal.cluster.meta.*;
+import com.ctrip.platform.dal.cluster.strategy.rule.ModShardRule;
+import com.ctrip.platform.dal.cluster.strategy.rule.ShardRule;
+import com.ctrip.platform.dal.cluster.strategy.rule.SuffixTableNamePattern;
+import com.ctrip.platform.dal.cluster.strategy.rule.TableNamePattern;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -17,6 +16,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * @author c7ch23en
@@ -52,21 +52,42 @@ public abstract class XMLConfigLoader implements ConfigLoader, XMLConfigConstant
         List<DatabaseShard> databaseShards = loadDatabaseShards(databaseShardsNodes.get(0));
         for (DatabaseShard databaseShard : databaseShards)
             cluster.addDatabaseShard(databaseShard);
-        // logictables
+
+        ModShardRule dbShardRule = null;
+        ModShardRule tableShardRule = null;
+        SuffixTableNamePattern tableNamePattern = null;
+        List<Node> shardStrategiesNodes = getChildNodes(clusterNode, SHARD_STRATEGIES);
+        List<Node> modShardStrategyNodes = getChildNodes(clusterNode, MOD_SHARD_STRATEGY);
+        if (modShardStrategyNodes.size() > 0 || shardStrategiesNodes.size() == 0) {
+            dbShardRule = new ModShardRule();
+            Node modShardStrategyNode = modShardStrategyNodes.get(0);
+            String dbShardKey = getAttribute(modShardStrategyNode, DB_SHARD_KEY);
+            if (dbShardKey != null)
+                dbShardRule.setShardKey(dbShardKey);
+            else
+                dbShardRule.setShardKey("ID");
+            dbShardRule.setMod(databaseShards.size());
+
+            tableShardRule = new ModShardRule();
+            tableNamePattern = new SuffixTableNamePattern();
+            String tableShardKey = getAttribute(modShardStrategyNode, TABLE_SHARD_KEY);
+            String tableShardMod = getAttribute(modShardStrategyNode, TABLE_SHARD_MOD);
+            if (tableShardKey != null)
+                tableShardRule.setShardKey(tableShardKey);
+            if (tableShardMod != null) {
+                tableShardRule.setMod(Integer.parseInt(tableShardMod));
+                tableNamePattern.setDigit(2);
+            }
+            cluster.setDbShardRule(dbShardRule);
+            cluster.setTableShardRule(tableShardRule);
+            cluster.setTableNamePattern(tableNamePattern);
+        }
+
         List<Node> logicTablesNodes = getChildNodes(clusterNode, LOGIC_TABLES);
         assertSingleton(logicTablesNodes, String.format("More than one <%s> element found", LOGIC_TABLES));
-
-        List<Node> shardStrategyNodes = getChildNodes(clusterNode, MOD_SHARD_STRATEGY);
-        List<Node> modShardStrategyNodes = getChildNodes(clusterNode, MOD_SHARD_STRATEGY);
-        if (modShardStrategyNodes.size() > 0 || shardStrategyNodes.size() == 0) {
-            ModShardRule dbShardRule = new ModShardRule();
-            dbShardRule.setMod(databaseShards.size());
-            dbShardRule.setShardKey("ID");
-            NoShardRule tableShardRule = new NoShardRule();
-            CustomNamePattern customNamePattern = new CustomNamePattern("#logicTableName#");
-            ModShardStrategy strategy = new ModShardStrategy(dbShardRule, tableShardRule, customNamePattern);
-            cluster.setShardStrategy(strategy);
-        }
+        List<Node> logicTableNodes = getChildNodes(logicTablesNodes.get(0), LOGIC_TABLE);
+        for (Node logicTableNode : logicTableNodes)
+            cluster.addLogicTable(loadLogicTable(logicTableNode, dbShardRule, tableShardRule, tableNamePattern));
 /*
 
         // shardrules
@@ -107,7 +128,7 @@ public abstract class XMLConfigLoader implements ConfigLoader, XMLConfigConstant
     private DatabaseShard loadDatabaseShard(Node databaseShardNode) throws Exception {
         String id = getAttribute(databaseShardNode, ID);
         assertNotNull(id, String.format("Attribute '%s' of Element <%s> not found", ID, DATABASE_SHARD));
-        DefaultDatabaseShard databaseShard = new DefaultDatabaseShard(Integer.parseInt(id));
+        DefaultDatabaseShard databaseShard = new DefaultDatabaseShard(id);
         List<Node> databaseNodes = getChildNodes(databaseShardNode, DATABASE);
         assertNotEmpty(databaseNodes, String.format("Element <%s> not found", DATABASE));
         for (Node databaseNode : databaseNodes)
@@ -116,14 +137,14 @@ public abstract class XMLConfigLoader implements ConfigLoader, XMLConfigConstant
     }
 
     private Database loadDatabase(Node databaseNode) throws Exception {
-        CommonDatabase database = new CommonDatabase();
+        CommonDatabase database;
         String role = getAttribute(databaseNode, ROLE, DatabaseRole.MASTER.getName());
         if (DatabaseRole.MASTER.getName().equalsIgnoreCase(role))
-            database.setRole(DatabaseRole.MASTER);
+            database = new MySqlDatabase(DatabaseRole.MASTER);
         else if (DatabaseRole.SLAVE.getName().equalsIgnoreCase(role))
-            database.setRole(DatabaseRole.SLAVE);
+            database = new MySqlDatabase(DatabaseRole.SLAVE);
         else
-            throw new DalClusterException("Database role invalid");
+            throw new DalClusterConfigException("Database role invalid");
         database.setReadWeights(Integer.parseInt(getAttribute(databaseNode, READ_WEIGHTS, "1")));
         database.setServer(getAttribute(databaseNode, SERVER));
         database.setPort(Integer.parseInt(getAttribute(databaseNode, PORT)));
@@ -135,6 +156,35 @@ public abstract class XMLConfigLoader implements ConfigLoader, XMLConfigConstant
         for (String tag : tags)
             database.addTag(tag);
         return database;
+    }
+
+    private LogicTable loadLogicTable(Node logicTableNode, ShardRule refDbRule,
+                                      ShardRule refTbRule, TableNamePattern refNamePattern)
+            throws Exception {
+        String name = getAttribute(logicTableNode, NAME);
+        DefaultLogicTable table = new DefaultLogicTable(name);
+        String dbShardKey = getAttribute(logicTableNode, DB_SHARD_KEY);
+        String tableShardKey = getAttribute(logicTableNode, TABLE_SHARD_KEY);
+        String tableShardMod = getAttribute(logicTableNode, TABLE_SHARD_MOD);
+        if (dbShardKey != null) {
+            Properties properties = new Properties();
+            properties.setProperty(ModShardRule.SHARD_KEY_PROPERTY_NAME, dbShardKey);
+            table.setDbShardRule(properties, refDbRule);
+        }
+        if (tableShardKey != null || tableShardMod != null) {
+            Properties properties = new Properties();
+            if (tableShardKey != null)
+                properties.setProperty(ModShardRule.SHARD_KEY_PROPERTY_NAME, tableShardKey);
+            if (tableShardMod != null)
+                properties.setProperty(ModShardRule.MOD_PROPERTY_NAME, tableShardMod);
+            table.setTableShardRule(properties, refTbRule);
+            if (tableShardMod != null) {
+                Properties properties2 = new Properties();
+                properties2.setProperty(SuffixTableNamePattern.DIGIT_PROPERTY_NAME, "2");
+                table.setTableNamePattern(properties2, refNamePattern);
+            }
+        }
+        return table;
     }
 /*
 

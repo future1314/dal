@@ -1,11 +1,9 @@
 package com.ctrip.platform.dal.cluster.meta;
 
 import com.ctrip.platform.dal.cluster.exception.DalClusterException;
+import com.ctrip.platform.dal.dao.DalEventEnum;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -13,30 +11,75 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class DefaultDatabaseShard implements DatabaseShard {
 
-    private int index;
-    private AtomicReference<Database> masterRef = new AtomicReference<>();
+    private String shardIndex;
+    private Database master;
     private List<Database> slaves = new ArrayList<>();
 
-    public DefaultDatabaseShard(int index) {
-        this.index = index;
+    public DefaultDatabaseShard(String shardIndex) {
+        this.shardIndex = shardIndex;
     }
 
     @Override
-    public int getShardIndex() {
-        return index;
+    public String getShardIndex() {
+        return shardIndex;
+    }
+
+    @Override
+    public Database selectMaster() {
+        return master;
+    }
+
+    @Override
+    public Database selectSlave() {
+        return selectSlave(slaves);
+    }
+
+    @Override
+    public Database selectDatabase(DalEventEnum eventType) {
+        if (eventType != DalEventEnum.QUERY)
+            return selectMaster();
+        return selectSlave();
+    }
+
+    @Override
+    public Database selectDatabase(DalEventEnum eventType, String databaseTag) {
+        if (eventType != DalEventEnum.QUERY)
+            return selectMaster();
+        Set<String> tags = new HashSet<>();
+        tags.add(databaseTag);
+        return selectSlave(filterSlaves(tags));
+    }
+
+    @Override
+    public Database selectDatabase(DalEventEnum eventType, Set<String> databaseTags) {
+        return null;
+    }
+
+    private Database selectSlave(List<Database> slaves) {
+        if (slaves != null && slaves.size() > 0)
+            // TODO: weighted select
+            return slaves.get(0);
+        return null;
+    }
+
+    private List<Database> filterSlaves(Set<String> tags) {
+        List<Database> targets = new ArrayList<>();
+        for (Database slave : slaves) {
+            if (slave.containsTags(tags))
+                targets.add(slave);
+        }
+        return targets;
     }
 
     public void addDatabase(Database database) {
-        if (database.getRole() == DatabaseRole.MASTER) {
-            if (!masterRef.compareAndSet(null, database))
-                throw new DalClusterException("Multi masters");
-        } else {
+        if (database.isMaster())
+            setMaster(database);
+        else
             addSlave(database);
-        }
     }
 
-    public Database setMaster(Database master) {
-        return masterRef.getAndSet(master);
+    public void setMaster(Database master) {
+        this.master = master;
     }
 
     public void addSlave(Database slave) {

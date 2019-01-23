@@ -1,8 +1,9 @@
 package com.ctrip.platform.dal.cluster.context;
 
-import com.ctrip.platform.dal.cluster.route.RWConnectionProxy;
+import com.ctrip.platform.dal.cluster.OperationType;
 
-import java.sql.Connection;
+import javax.sql.DataSource;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -10,10 +11,10 @@ import java.util.Set;
  */
 public interface DatabaseShardContext {
 
-    RWConnectionProxy getRWConnectionProxy();
+    String getShardId();
 
-    TableShardContext getTableShardContext(String tableShardId);
+    DataSource getDataSource(OperationType operation);
 
-    Set<String> getAllTableShardIds();
+    Set<TableShardContext> getTableShardContexts();
 
 }
