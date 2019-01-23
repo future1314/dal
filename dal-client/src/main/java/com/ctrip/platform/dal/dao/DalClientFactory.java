@@ -2,6 +2,8 @@ package com.ctrip.platform.dal.dao;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.ctrip.platform.dal.cluster.config.ClusterLocator;
+import com.ctrip.platform.dal.cluster.config.LocalConfigLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +22,8 @@ public class DalClientFactory {
     private static Logger logger = LoggerFactory.getLogger(Version.getLoggerName());
 
     private static AtomicReference<DalConfigure> configureRef = new AtomicReference<DalConfigure>();
+
+    private static AtomicReference<ClusterLocator> clusterLocatorRef = new AtomicReference<>();
 
     private static final String THREAD_NAME = "DAL-DalClientFactory-ShutdownHook";
 
@@ -86,6 +90,8 @@ public class DalClientFactory {
             DalStatusManager.initialize(config);
 
             configureRef.set(config);
+
+            clusterLocatorRef.set(new LocalConfigLoader().load());
         }
     }
 
@@ -129,6 +135,25 @@ public class DalClientFactory {
         config = configureRef.get();
         if (config != null)
             return config;
+
+        throw new IllegalStateException("DalClientFactory has not been not initialized or initialization fail");
+    }
+
+    public static ClusterLocator getClusterLocator() {
+
+        ClusterLocator locator = clusterLocatorRef.get();
+        if (locator != null)
+            return locator;
+
+        try {
+            initClientFactory();
+        } catch (Exception e) {
+            throw new IllegalStateException("DalClientFactory initialization fail", e);
+        }
+
+        locator = clusterLocatorRef.get();
+        if (locator != null)
+            return locator;
 
         throw new IllegalStateException("DalClientFactory has not been not initialized or initialization fail");
     }

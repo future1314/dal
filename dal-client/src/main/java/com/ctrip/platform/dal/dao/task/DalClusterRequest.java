@@ -11,5 +11,5 @@ public interface DalClusterRequest {
      */
     void validateAndPrepare() throws SQLException;
 
-    void execute();
+    void execute() throws SQLException;
 }

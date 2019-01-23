@@ -42,7 +42,9 @@ public class DalCluster implements Cluster {
         DatabaseShardContext dbCtx = dbCtxs.iterator().next();
         DataSource ds = dbCtx.getDataSource(action.getOperationType());
         TableShardContext tbCtx = dbCtx.getTableShardContexts().iterator().next();
+
         PreparedSQLContext sqlCtx = action.prepareSQLContext(tbCtx.getTargetTableName(), rowData);
+
         PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlCtx.getSql(), sqlCtx.getParameters());
         ps.executeUpdate();
     }

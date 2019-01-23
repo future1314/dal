@@ -3,6 +3,7 @@ package com.ctrip.platform.dal.cluster.context;
 import com.ctrip.platform.dal.cluster.SQLData;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -10,7 +11,7 @@ import java.util.Map;
  */
 public class Row implements SQLData {
 
-    private Map<String, Object> data = new HashMap<>();
+    private Map<String, Object> data = new LinkedHashMap<>();
 
     public Row() {}
 

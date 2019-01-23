@@ -86,9 +86,10 @@ public class DalClusterRequestExecutor {
         }
     }
 
-    public <T> T execute(final DalHints hints, final DalRequest<T> request) throws SQLException {
+    public <T> T execute(final DalHints hints, final DalClusterRequest request) throws SQLException {
         request.validateAndPrepare();
-        return execute(hints, request, false);
+        request.execute();
+        return null;
     }
 
     public <T> T execute(final DalHints hints, final DalRequest<T> request, final boolean nullable) throws SQLException {

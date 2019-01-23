@@ -2,6 +2,7 @@ package com.ctrip.platform.dal.dao.task;
 
 import com.ctrip.platform.dal.cluster.Cluster;
 import com.ctrip.platform.dal.cluster.SQLData;
+import com.ctrip.platform.dal.cluster.context.Row;
 import com.ctrip.platform.dal.dao.DalHints;
 
 import java.sql.SQLException;
@@ -23,13 +24,33 @@ public class DalClusterSingleTaskRequest<T> implements DalClusterRequest {
     private List<T> rawPojos = new ArrayList<>();
     private List<Map<String, ?>> daoPojos;
 
-    @Override
-    public void validateAndPrepare() throws SQLException {
-        rawPojos.add(pojo);
+    public DalClusterSingleTaskRequest(Cluster cluster, String logicTableName, DalHints hints, SingleTask<T> task, T pojo) {
+        this.cluster = cluster;
+        this.logicTableName = logicTableName;
+        this.hints = hints;
+        this.task = task;
+        this.pojo = pojo;
     }
 
     @Override
-    public void execute() {
+    public void validateAndPrepare() throws SQLException {
+        rawPojos.add(pojo);
+        daoPojos = task.getPojosFields(rawPojos);
+        rowData = buildRowData(daoPojos.get(0));
+    }
 
+    @Override
+    public void execute() throws SQLException {
+        if (task instanceof SingleInsertTask) {
+            cluster.execute(logicTableName, rowData, (SingleInsertTask) task);
+        }
+    }
+
+    private SQLData buildRowData(Map<String, ?> pojo) {
+        Row row = new Row();
+        for (Map.Entry<String, ?> field : pojo.entrySet()) {
+            row.set(field.getKey(), field.getValue());
+        }
+        return row;
     }
 }

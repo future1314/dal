@@ -4,11 +4,15 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
+import com.ctrip.platform.dal.cluster.Cluster;
 import com.ctrip.platform.dal.common.enums.DatabaseCategory;
 import com.ctrip.platform.dal.dao.helper.DalDefaultJpaParser;
 import com.ctrip.platform.dal.dao.sqlbuilder.*;
 import com.ctrip.platform.dal.dao.task.BulkTask;
 import com.ctrip.platform.dal.dao.task.DalBulkTaskRequest;
+import com.ctrip.platform.dal.dao.task.DalClusterBulkTaskRequest;
+import com.ctrip.platform.dal.dao.task.DalClusterRequestExecutor;
+import com.ctrip.platform.dal.dao.task.DalClusterSingleTaskRequest;
 import com.ctrip.platform.dal.dao.task.DalRequestExecutor;
 import com.ctrip.platform.dal.dao.task.DalSingleTaskRequest;
 import com.ctrip.platform.dal.dao.task.DalSqlTaskRequest;
@@ -28,6 +32,7 @@ import com.ctrip.platform.dal.exceptions.ErrorCode;
  */
 public final class DalTableDao<T> extends TaskAdapter<T> {
     public static final String GENERATED_KEY = "GENERATED_KEY";
+    Cluster cluster;
 
     private SingleTask<T> singleInsertTask;
     private SingleTask<T> singleDeleteTask;
@@ -46,6 +51,7 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
     private UpdateSqlTask<T> updateSqlTask;
 
     private DalRequestExecutor executor;
+    private DalClusterRequestExecutor clusterExecutor = new DalClusterRequestExecutor();
 
     public DalTableDao(DalParser<T> parser) {
         this(parser, DalClientFactory.getTaskFactory());
@@ -75,6 +81,7 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
         initialize(parser);
         initTasks(factory);
         this.executor = executor;
+        cluster = DalClientFactory.getClusterLocator().getCluster(logicDbName);
     }
 
     private void initTasks(DalTaskFactory factory) {
@@ -398,6 +405,11 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
         return insert(hints, hints.getKeyHolder(), daoPojo);
     }
 
+    public int insertCluster(DalHints hints, T daoPojo) throws SQLException {
+        clusterExecutor.execute(hints, new DalClusterSingleTaskRequest<>(cluster, rawTableName, hints, singleInsertTask, daoPojo));
+        return 0;
+    }
+
     /**
      * Insert pojo and get the generated PK back in keyHolder. If the "set no count on" for MS SqlServer is
      * set(currently set in Ctrip), the operation may fail. Please don't pass keyholder for MS SqlServer to avoid the
@@ -461,6 +473,11 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
         return combinedInsert(hints, hints.getKeyHolder(), daoPojos);
     }
 
+    public int combinedInsertCluster(DalHints hints, List<T> daoPojos) throws SQLException {
+        clusterExecutor.execute(hints, new DalClusterBulkTaskRequest<>(cluster, rawTableName, hints, daoPojos, combinedInsertTask));
+        return 0;
+    }
+
     /**
      * Insert multiple pojos in one INSERT SQL and get the generated PK back in keyHolder. If the "set no count on" for
      * MS SqlServer is set(currently set in Ctrip), the operation may fail. Please don't pass keyholder for MS SqlServer
@@ -490,6 +507,11 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
     public int[] batchInsert(DalHints hints, List<T> daoPojos) throws SQLException {
         return executor.execute(hints,
                 new DalBulkTaskRequest<>(logicDbName, rawTableName, hints, daoPojos, batchInsertTask));
+    }
+
+    public int[] batchInsertCluster(DalHints hints, List<T> daoPojos) throws SQLException {
+        clusterExecutor.execute(hints, new DalClusterBulkTaskRequest<>(cluster, rawTableName, hints, daoPojos, batchInsertTask));
+        return null;
     }
 
     /**

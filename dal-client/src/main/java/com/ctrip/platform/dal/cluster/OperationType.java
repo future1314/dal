@@ -6,7 +6,8 @@ package com.ctrip.platform.dal.cluster;
 public enum OperationType {
 
     QUERY,
+    INSERT,
     UPDATE,
-    BATCH_UPDATE
+    DELETE
 
 }
