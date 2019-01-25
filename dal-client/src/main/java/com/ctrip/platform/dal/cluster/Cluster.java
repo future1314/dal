@@ -1,9 +1,7 @@
 package com.ctrip.platform.dal.cluster;
 
-import com.ctrip.platform.dal.cluster.context.DatabaseShardContext;
-import com.ctrip.platform.dal.cluster.context.Row;
-import com.ctrip.platform.dal.cluster.context.ShardRequestContext;
-import com.ctrip.platform.dal.cluster.context.ShardResultContext;
+import com.ctrip.platform.dal.dao.DalResultSetExtractor;
+import com.ctrip.platform.dal.dao.ResultMerger;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -15,15 +13,24 @@ public interface Cluster {
 
     String getClusterName();
 
-//    ShardResultContext shard(ShardRequestContext requestCtx);
+    // 集合并发可变性
+    // 考虑用数组
+    // 回调命名
+    void insert(String logicTableName, SQLHandler handler, SQLData... rowSet) throws SQLException;
+    void insert(String logicTableName, Iterable<SQLData> rowSet, SQLHandler handler) throws SQLException;
 
-    // set
-//    List<DatabaseShardContext> shard(String logicTableName, List<Row> rowList);
+    void batchInsert(String logicTableName, Iterable<SQLData> rowSet, SQLHandler handler) throws SQLException;
 
-    void execute(String logicTableName, SQLData rowData, SingleAction action) throws SQLException;
+    <T> T query(String logicTableName, NamedSQLParameters params, SQLHandler handler,
+                ResultMerger<T> merger, DalResultSetExtractor<T> extractor) throws SQLException;
 
-    void execute(String logicTableName, List<SQLData> rowDataList, CombinedAction action) throws SQLException;
+    <T> T query(String logicTableName, SQLHandler handler,
+                ResultMerger<T> merger, DalResultSetExtractor<T> extractor, String columnName, Object... columnValues) throws SQLException;
 
-    void execute(String logicTableName, List<SQLData> rowDataList, BatchAction action) throws SQLException;
+    /**
+     * 自定义SQL，指定Shard
+     * 部分Case自动计算分片
+     */
+
 
 }

@@ -1,18 +1,22 @@
 package com.ctrip.platform.dal.dao.task;
 
 
-import com.ctrip.platform.dal.cluster.CombinedAction;
+import com.ctrip.platform.dal.cluster.CombinedHandler;
+import com.ctrip.platform.dal.cluster.NamedSQLParameters;
 import com.ctrip.platform.dal.cluster.OperationType;
 import com.ctrip.platform.dal.cluster.PreparedSQLContext;
 import com.ctrip.platform.dal.cluster.SQLData;
+import com.ctrip.platform.dal.cluster.SQLHandler;
 import com.ctrip.platform.dal.cluster.context.Row;
+import com.ctrip.platform.dal.cluster.exception.DalClusterException;
 import com.ctrip.platform.dal.dao.StatementParameters;
 
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class CombinedInsertTask<T> extends AbstractCombinedInsertTask<T> implements CombinedAction {
+public class CombinedInsertTask<T> extends AbstractCombinedInsertTask<T> implements SQLHandler {
 	protected static final String TPL_SQL_COMBINED_INSERT = "INSERT INTO %s(%s) VALUES %s";
 
 	@Override
@@ -21,7 +25,7 @@ public class CombinedInsertTask<T> extends AbstractCombinedInsertTask<T> impleme
 	}
 
 	@Override
-	public PreparedSQLContext prepareSQLContext(String targetTableName, List<SQLData> rowData) {
+	public PreparedSQLContext prepare(String targetTableName, Iterable<SQLData> rowData) {
 		StatementParameters parameters = new StatementParameters();
 		StringBuilder values = new StringBuilder();
 
@@ -41,13 +45,13 @@ public class CombinedInsertTask<T> extends AbstractCombinedInsertTask<T> impleme
 
 		PreparedSQLContext context = new PreparedSQLContext();
 		context.setSql(sql);
-		context.setParameters(parameters);
+		context.addParams(parameters);
 		return context;
 	}
 
 	@Override
-	public OperationType getOperationType() {
-		return OperationType.INSERT;
+	public PreparedSQLContext prepare(String targetTableName, NamedSQLParameters params) {
+		throw new UnsupportedOperationException();
 	}
 
 }

@@ -4,10 +4,12 @@ import com.ctrip.platform.dal.cluster.*;
 import com.ctrip.platform.dal.cluster.context.*;
 import com.ctrip.platform.dal.cluster.strategy.rule.ShardRule;
 import com.ctrip.platform.dal.cluster.strategy.rule.TableNamePattern;
+import com.ctrip.platform.dal.dao.DalResultSetExtractor;
+import com.ctrip.platform.dal.dao.ResultMerger;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -34,57 +36,64 @@ public class DalCluster implements Cluster {
         return clusterName;
     }
 
-    @Override
-    public void execute(String logicTableName, SQLData rowData, SingleAction action) throws SQLException {
-        List<SQLData> rowDataList = new ArrayList<>();
-        rowDataList.add(rowData);
-        Set<DatabaseShardContext> dbCtxs = shard(logicTableName, rowDataList);
-        DatabaseShardContext dbCtx = dbCtxs.iterator().next();
-        DataSource ds = dbCtx.getDataSource(action.getOperationType());
-        TableShardContext tbCtx = dbCtx.getTableShardContexts().iterator().next();
-
-        PreparedSQLContext sqlCtx = action.prepareSQLContext(tbCtx.getTargetTableName(), rowData);
-
-        PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlCtx.getSql(), sqlCtx.getParameters());
-        ps.executeUpdate();
-    }
 
     @Override
-    public void execute(String logicTableName, List<SQLData> rowDataList, CombinedAction action) throws SQLException {
-        Set<DatabaseShardContext> dbCtxs = shard(logicTableName, rowDataList);
+    public void insert(String logicTableName, Iterable<SQLData> rowSet, SQLHandler handler) throws SQLException {
+        Set<DatabaseShardContext> dbCtxs = shard(logicTableName, rowSet);
         for (DatabaseShardContext dbCtx : dbCtxs) {
-            DataSource ds = dbCtx.getDataSource(action.getOperationType());
+            DataSource ds = dbCtx.getDataSource(OperationType.INSERT);
             for (TableShardContext tbCtx : dbCtx.getTableShardContexts()) {
                 Map<Integer, SQLData> tbRowMap = tbCtx.getIndexedRowSet();
                 List<SQLData> tbRowList = new ArrayList<>(tbRowMap.values());
-                PreparedSQLContext sqlCtx = action.prepareSQLContext(tbCtx.getTargetTableName(), tbRowList);
-                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlCtx.getSql(), sqlCtx.getParameters());
+                PreparedSQLContext sqlCtx = handler.prepare(tbCtx.getTargetTableName(), tbRowList);
+                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlCtx.getSql(), sqlCtx.getParamsList().get(0));
                 ps.executeUpdate();
             }
         }
     }
 
     @Override
-    public void execute(String logicTableName, List<SQLData> rowDataList, BatchAction action) throws SQLException {
-        Set<DatabaseShardContext> dbCtxs = shard(logicTableName, rowDataList);
+    public void batchInsert(String logicTableName, Iterable<SQLData> rowSet, SQLHandler handler) throws SQLException {
+        Set<DatabaseShardContext> dbCtxs = shard(logicTableName, rowSet);
         for (DatabaseShardContext dbCtx : dbCtxs) {
-            DataSource ds = dbCtx.getDataSource(action.getOperationType());
+            DataSource ds = dbCtx.getDataSource(OperationType.INSERT);
             for (TableShardContext tbCtx : dbCtx.getTableShardContexts()) {
                 Map<Integer, SQLData> tbRowMap = tbCtx.getIndexedRowSet();
                 List<SQLData> tbRowList = new ArrayList<>(tbRowMap.values());
-                PreparedBatchSQLContext sqlCtx = action.prepareSQLContext(tbCtx.getTargetTableName(), tbRowList);
-                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlCtx.getSql(), sqlCtx.getParametersList());
+                PreparedSQLContext sqlCtx = handler.prepare(tbCtx.getTargetTableName(), tbRowList);
+                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlCtx.getSql(), sqlCtx.getParamsList());
                 ps.executeBatch();
             }
         }
     }
 
-    public Set<DatabaseShardContext> shard(String logicTableName, List<SQLData> rowList) {
+    @Override
+    public <T> T query(String logicTableName, NamedSQLParameters params, SQLHandler handler,
+                       ResultMerger<T> merger, DalResultSetExtractor<T> extractor) throws SQLException {
+        Set<DatabaseShardContext> dbCtxs = shard(logicTableName, params);
+        for (DatabaseShardContext dbCtx : dbCtxs) {
+            DataSource ds = dbCtx.getDataSource(OperationType.QUERY);
+            for (TableShardContext tbCtx : dbCtx.getTableShardContexts()) {
+                Map<Integer, SQLData> tbRowMap = tbCtx.getIndexedRowSet();
+                List<SQLData> tbRowList = new ArrayList<>(tbRowMap.values());
+                PreparedSQLContext sqlCtx = handler.prepare(tbCtx.getTargetTableName(), (NamedSQLParameters) tbRowList.get(0));
+                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlCtx.getSql(), sqlCtx.getParamsList().get(0));
+                ResultSet rs = ps.executeQuery();
+                T result = extractor.extract(rs);
+                merger.addPartial(dbCtx.getShardId() + tbCtx.getTargetTableName(), result);
+            }
+        }
+        return merger.merge();
+    }
+
+    private Set<DatabaseShardContext> shard(String logicTableName, Iterable<SQLData> rowSet) {
         ShardRule dbShardRule = getDbShardRule(logicTableName);
         ShardRule tableShardRule = getTableShardRule(logicTableName);
         Map<String, Map<String, Map<Integer, SQLData>>> shuffled = new HashMap<>();
-        for (int i = 0; i < rowList.size(); i++) {
-            SQLData row = rowList.get(i);
+        Iterator<SQLData> iterator = rowSet.iterator();
+        int rowIndex = 0;
+        while (iterator.hasNext()) {
+            SQLData row = iterator.next();
             String dbShardId = dbShardRule.shardByFields(row);
             String tbShardId = tableShardRule.shardByFields(row);
             Map<String, Map<Integer, SQLData>> tbShards = shuffled.get(dbShardId);
@@ -97,8 +106,28 @@ public class DalCluster implements Cluster {
                 tbShard = new HashMap<>();
                 tbShards.put(tbShardId, tbShard);
             }
-            tbShard.put(i, row);
+            tbShard.put(rowIndex++, row);
         }
+        return buildContext(shuffled, logicTableName);
+    }
+
+    private Set<DatabaseShardContext> shard(String logicTableName, NamedSQLParameters params) {
+        ShardRule dbShardRule = getDbShardRule(logicTableName);
+        ShardRule tableShardRule = getTableShardRule(logicTableName);
+        Map<String, Map<String, Map<Integer, SQLData>>> shuffled = new HashMap<>();
+        String dbShardId = dbShardRule.shardByFields(params);
+        String tbShardId = tableShardRule.shardByFields(params);
+        Map<String, Map<Integer, SQLData>> tbShards = shuffled.get(dbShardId);
+        if (tbShards == null) {
+            tbShards = new HashMap<>();
+            shuffled.put(dbShardId, tbShards);
+        }
+        Map<Integer, SQLData> tbShard = tbShards.get(tbShardId);
+        if (tbShard == null) {
+            tbShard = new HashMap<>();
+            tbShards.put(tbShardId, tbShard);
+        }
+        tbShard.put(0, params);
         return buildContext(shuffled, logicTableName);
     }
 
@@ -149,13 +178,6 @@ public class DalCluster implements Cluster {
         }
         return ctx;
     }
-
-/*
-    @Override
-    public ShardResultContext shard(ShardRequestContext requestCtx) {
-        return new ClusterShardResultContext();
-    }
-*/
 
     public DatabaseShard addDatabaseShard(DatabaseShard databaseShard) {
         return databaseShards.put(databaseShard.getShardIndex(), databaseShard);

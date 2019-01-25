@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * @author c7ch23en
  */
-public interface CombinedAction extends SQLAction {
+public interface CombinedHandler extends SQLHandler {
 
     PreparedSQLContext prepareSQLContext(String targetTableName, List<SQLData> rowData);
 

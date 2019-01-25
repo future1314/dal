@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import com.ctrip.platform.dal.cluster.IndexedSQLParameter;
+import com.ctrip.platform.dal.cluster.NamedSQLParameter;
 import com.ctrip.platform.dal.common.enums.DbType;
 import com.ctrip.platform.dal.common.enums.ParameterDirection;
 import com.ctrip.platform.dal.dao.helper.SqlTypeHelper;
 
-public class StatementParameter implements Comparable<StatementParameter> {
+public class StatementParameter implements Comparable<StatementParameter>, IndexedSQLParameter, NamedSQLParameter {
 	private boolean defaultType;
 
 	private boolean isTSQLParameter = false;
@@ -281,5 +283,10 @@ public class StatementParameter implements Comparable<StatementParameter> {
 	@Override
 	public int compareTo(StatementParameter o) {
 		return this.index - o.index;
+	}
+
+	@Override
+	public Object getParamValue() {
+		return value;
 	}
 }

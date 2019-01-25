@@ -13,6 +13,7 @@ import com.ctrip.platform.dal.dao.task.DalBulkTaskRequest;
 import com.ctrip.platform.dal.dao.task.DalClusterBulkTaskRequest;
 import com.ctrip.platform.dal.dao.task.DalClusterRequestExecutor;
 import com.ctrip.platform.dal.dao.task.DalClusterSingleTaskRequest;
+import com.ctrip.platform.dal.dao.task.DalClusterSqlTaskRequest;
 import com.ctrip.platform.dal.dao.task.DalRequestExecutor;
 import com.ctrip.platform.dal.dao.task.DalSingleTaskRequest;
 import com.ctrip.platform.dal.dao.task.DalSqlTaskRequest;
@@ -384,11 +385,15 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
     }
 
     private <K> K commonQuery(SelectSqlBuilder builder, DalHints hints) throws SQLException {
-        DalSqlTaskRequest<K> request = new DalSqlTaskRequest<K>(logicDbName, populate(builder), hints,
+/*        DalSqlTaskRequest<K> request = new DalSqlTaskRequest<K>(logicDbName, populate(builder), hints,
+                DalClientFactory.getTaskFactory().createQuerySqlTask((DalParser<K>) parser, (DalResultSetExtractor<K>) builder.getResultExtractor(hints)),
+                (ResultMerger<K>) builder.getResultMerger(hints));*/
+
+//        return executor.execute(hints, request, builder.isNullable());
+        DalClusterSqlTaskRequest<K> request = new DalClusterSqlTaskRequest<K>(cluster, populate(builder), hints,
                 DalClientFactory.getTaskFactory().createQuerySqlTask((DalParser<K>) parser, (DalResultSetExtractor<K>) builder.getResultExtractor(hints)),
                 (ResultMerger<K>) builder.getResultMerger(hints));
-
-        return executor.execute(hints, request, builder.isNullable());
+        return clusterExecutor.execute(hints, request);
     }
 
     /**

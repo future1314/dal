@@ -1,19 +1,18 @@
 package com.ctrip.platform.dal.dao.task;
 
 
+import com.ctrip.platform.dal.cluster.NamedSQLParameters;
 import com.ctrip.platform.dal.cluster.OperationType;
 import com.ctrip.platform.dal.cluster.PreparedSQLContext;
 import com.ctrip.platform.dal.cluster.SQLData;
-import com.ctrip.platform.dal.cluster.SingleAction;
+import com.ctrip.platform.dal.cluster.SQLHandler;
+import com.ctrip.platform.dal.cluster.SingleHandler;
 import com.ctrip.platform.dal.cluster.context.Row;
-import com.ctrip.platform.dal.dao.DalHints;
 import com.ctrip.platform.dal.dao.StatementParameters;
 
-import java.sql.SQLException;
-import java.util.Map;
 import java.util.Set;
 
-public class SingleInsertTask<T> extends AbstractSingleInsertTask<T> implements SingleAction {
+public class SingleInsertTask<T> extends AbstractSingleInsertTask<T> implements SQLHandler {
 	protected static final String TPL_SQL_INSERT = "INSERT INTO %s (%s) VALUES (%s)";
 
 	@Override
@@ -22,8 +21,8 @@ public class SingleInsertTask<T> extends AbstractSingleInsertTask<T> implements 
 	}
 
 	@Override
-	public PreparedSQLContext prepareSQLContext(String targetTableName, SQLData rowData) {
-		Row row = (Row) rowData;
+	public PreparedSQLContext prepare(String targetTableName, Iterable<SQLData> rowData) {
+		Row row = (Row) rowData.iterator().next();
 
 		String insertSql = buildInsertSql(row, targetTableName);
 		StatementParameters parameters = new StatementParameters();
@@ -31,13 +30,13 @@ public class SingleInsertTask<T> extends AbstractSingleInsertTask<T> implements 
 
 		PreparedSQLContext context = new PreparedSQLContext();
 		context.setSql(insertSql);
-		context.setParameters(parameters);
+		context.addParams(parameters);
 		return context;
 	}
 
 	@Override
-	public OperationType getOperationType() {
-		return OperationType.INSERT;
+	public PreparedSQLContext prepare(String targetTableName, NamedSQLParameters params) {
+		throw new UnsupportedOperationException();
 	}
 
 	protected String buildInsertSql(Row fields, String effectiveTableName) {

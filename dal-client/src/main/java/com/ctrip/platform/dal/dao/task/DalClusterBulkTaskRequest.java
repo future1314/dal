@@ -43,10 +43,10 @@ public class DalClusterBulkTaskRequest<K, T> implements DalClusterRequest {
     @Override
     public void execute() throws SQLException {
         if (task instanceof CombinedInsertTask) {
-            cluster.execute(logicTableName, rowDataList, (CombinedInsertTask) task);
+            cluster.insert(logicTableName, rowDataList, (CombinedInsertTask) task);
         }
         if (task instanceof BatchInsertTask) {
-            cluster.execute(logicTableName, rowDataList, (BatchInsertTask) task);
+            cluster.batchInsert(logicTableName, rowDataList, (BatchInsertTask) task);
         }
     }
 

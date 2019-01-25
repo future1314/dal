@@ -3,11 +3,14 @@ package com.ctrip.platform.dal.dao;
 import java.util.*;
 import java.util.List;
 
+import com.ctrip.platform.dal.cluster.IndexedSQLParameter;
+import com.ctrip.platform.dal.cluster.NamedSQLParameter;
+import com.ctrip.platform.dal.cluster.NamedSQLParameters;
 import com.ctrip.platform.dal.common.enums.ParameterDirection;
 import com.ctrip.platform.dal.common.enums.ParametersType;
 import com.ctrip.platform.dal.exceptions.DalRuntimeException;
 
-public class StatementParameters {
+public class StatementParameters implements Iterable<IndexedSQLParameter>, NamedSQLParameters {
 	private static final String SQLHIDDENString = "*";
 
 	private List<StatementParameter> parameters = new LinkedList<StatementParameter>();
@@ -407,4 +410,19 @@ public class StatementParameters {
 		noIndex,
 		index
 	}*/
+
+	@Override
+	public Iterator<IndexedSQLParameter> iterator() {
+		return new LinkedList<IndexedSQLParameter>(parameters).iterator();
+	}
+
+	@Override
+	public NamedSQLParameter getParameter(String name) {
+		return get(name, ParameterDirection.Input);
+	}
+
+	@Override
+	public Object getValue(String name) {
+		return getParameter(name).getParamValue();
+	}
 }

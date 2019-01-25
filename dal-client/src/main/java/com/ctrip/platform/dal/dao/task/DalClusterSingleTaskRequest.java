@@ -7,6 +7,7 @@ import com.ctrip.platform.dal.dao.DalHints;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -42,7 +43,9 @@ public class DalClusterSingleTaskRequest<T> implements DalClusterRequest {
     @Override
     public void execute() throws SQLException {
         if (task instanceof SingleInsertTask) {
-            cluster.execute(logicTableName, rowData, (SingleInsertTask) task);
+            List<SQLData> datas = new LinkedList<>();
+            datas.add(rowData);
+            cluster.insert(logicTableName, datas, (SingleInsertTask) task);
         }
     }
 

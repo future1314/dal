@@ -1,22 +1,22 @@
 package com.ctrip.platform.dal.dao.task;
 
 
-import com.ctrip.platform.dal.cluster.BatchAction;
+import com.ctrip.platform.dal.cluster.BatchHandler;
+import com.ctrip.platform.dal.cluster.NamedSQLParameters;
 import com.ctrip.platform.dal.cluster.OperationType;
 import com.ctrip.platform.dal.cluster.PreparedBatchSQLContext;
 import com.ctrip.platform.dal.cluster.PreparedSQLContext;
 import com.ctrip.platform.dal.cluster.SQLData;
+import com.ctrip.platform.dal.cluster.SQLHandler;
 import com.ctrip.platform.dal.cluster.context.Row;
-import com.ctrip.platform.dal.dao.DalHints;
 import com.ctrip.platform.dal.dao.StatementParameters;
 
-import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class BatchInsertTask<T> extends AbstractBatchInsertTask<T> implements BatchAction {
+public class BatchInsertTask<T> extends AbstractBatchInsertTask<T> implements SQLHandler {
 	private static final String TPL_SQL_BATCH_INSERT = "INSERT INTO %s (%s) VALUES (%s)";
 
 	@Override
@@ -25,9 +25,8 @@ public class BatchInsertTask<T> extends AbstractBatchInsertTask<T> implements Ba
 	}
 
 	@Override
-	public PreparedBatchSQLContext prepareSQLContext(String targetTableName, List<SQLData> rowData) {
-		StatementParameters[] parametersList = new StatementParameters[rowData.size()];
-		int i = 0;
+	public PreparedSQLContext prepare(String targetTableName, Iterable<SQLData> rowData) {
+		PreparedSQLContext context = new PreparedSQLContext();
 
 		Set<String> unqualifiedColumns = new HashSet<>();
 
@@ -37,20 +36,20 @@ public class BatchInsertTask<T> extends AbstractBatchInsertTask<T> implements Ba
 
 			StatementParameters parameters = new StatementParameters();
 			addParameters(parameters, pojo);
-			parametersList[i++] = parameters;
+			context.addParams(parameters);
 		}
 
 		String batchInsertSql = buildBatchInsertSql(unqualifiedColumns, targetTableName);
-		PreparedBatchSQLContext context = new PreparedBatchSQLContext();
+
 		context.setSql(batchInsertSql);
-		context.setParametersList(parametersList);
 		return context;
 	}
 
 	@Override
-	public OperationType getOperationType() {
-		return OperationType.INSERT;
+	public PreparedSQLContext prepare(String targetTableName, NamedSQLParameters params) {
+		throw new UnsupportedOperationException();
 	}
+
 
 	private String buildBatchInsertSql(Set<String> unqualifiedColumns, String tableName) {
 		List<String> finalInsertableColumns = buildValidColumnsForInsert(unqualifiedColumns);
