@@ -35,8 +35,18 @@ public class DataSourceValidator implements ValidatorProxy {
             connectionUrl = LoggerHelper.getSimplifiedDBUrl(connection.getMetaData().getURL());
             transactionName = String.format(CONNECTION_VALIDATE_CONNECTION_FORMAT, connectionUrl);
             LOGGER.logTransaction(DAL, transactionName, String.format(IS_VALID_FORMAT, isValid), startTime);
+
+            if (!isValid) {
+                LOGGER.warn(IS_VALID_RETURN_INFO);
+            }
         } catch (Throwable e) {
-            LOGGER.warn(String.format(VALIDATE_ERROR_FORMAT, e.getMessage()));
+            StringBuilder sb = new StringBuilder();
+            if (!isValid) {
+                sb.append(IS_VALID_RETURN_INFO);
+                sb.append(" "); // space
+            }
+            sb.append(String.format(VALIDATE_ERROR_FORMAT, e.getMessage()));
+            LOGGER.warn(sb.toString());
             LOGGER.logTransaction(DAL, transactionName, String.format(IS_VALID_FORMAT, isValid), e, startTime);
         }
 
@@ -93,10 +103,6 @@ public class DataSourceValidator implements ValidatorProxy {
             isValid = MySqlConnectionHelper.isValid(mySqlConnection, DEFAULT_VALIDATE_TIMEOUT_IN_SECONDS);
         } else {
             isValid = connection.isValid(DEFAULT_VALIDATE_TIMEOUT_IN_SECONDS);
-        }
-
-        if (!isValid) {
-            LOGGER.warn(IS_VALID_RETURN_INFO);
         }
 
         return isValid;

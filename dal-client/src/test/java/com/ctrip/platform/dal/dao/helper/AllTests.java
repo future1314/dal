@@ -16,6 +16,7 @@ import org.junit.runners.Suite.SuiteClasses;
 		ServiceLoaderHelperTest.class,
 		DalBase64Test.class,
 		LoggerHelperTest.class,
-		TableParserTest.class
+		TableParserTest.class,
+		EntityManagerTest.class
 })
 public class AllTests {}
