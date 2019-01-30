@@ -9,277 +9,332 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.ctrip.platform.dal.common.enums.DalTransactionStatus;
 import com.ctrip.platform.dal.dao.DalClientFactory;
+import com.ctrip.platform.dal.dao.helper.DalElementFactory;
 import com.ctrip.platform.dal.dao.helper.DalTransactionHelper;
+import com.ctrip.platform.dal.dao.log.Callback;
+import com.ctrip.platform.dal.dao.log.ILogger;
 import com.ctrip.platform.dal.exceptions.DalException;
 import com.ctrip.platform.dal.exceptions.DalTransactionConflictException;
 import com.ctrip.platform.dal.exceptions.ErrorCode;
 
 public class DalTransaction {
-	private String logicDbName;
-	private DalConnection connHolder;
-	private List<DalTransactionListener> listeners;
-	private int level = 0;
-	private boolean rolledBack = false;
-	private boolean completed = false;
-	private DalLogger logger;
+    private String logicDbName;
+    private DalConnection connHolder;
+    private List<DalTransactionListener> listeners;
+    private int level = 0;
+    private boolean rolledBack = false;
+    private boolean completed = false;
+    private boolean rollbackOnly = false;
+    private DalLogger logger;
 
-	private DalTransactionStatus status = DalTransactionStatus.Initial;
-	private Map<Integer, DalTransactionStatusWrapper> transactionStatusWrapperMap = new ConcurrentHashMap<>();
-	private DalTransactionHelper transactionHelper = DalTransactionHelper.getInstance();
-	private static final int FIRST_LEVEL = 1;
+    private DalTransactionStatus status = DalTransactionStatus.Initial;
+    private Map<Integer, DalTransactionStatusWrapper> transactionStatusWrapperMap = new ConcurrentHashMap<>();
+    private DalTransactionHelper transactionHelper = DalTransactionHelper.getInstance();
+    private static final int FIRST_LEVEL = 1;
 
-	public DalTransaction(DalConnection connHolder, String logicDbName) throws SQLException {
-		this.logicDbName = logicDbName;
-		this.connHolder = connHolder;
-		connHolder.getConn().setAutoCommit(false);
-		this.logger = DalClientFactory.getDalLogger();
-	}
+    private static final String DAL = "DAL";
+    private static final String DAL_TRANSACTION_SET_ROLLBACK_ONLY = "Transaction::setRollbackOnly:%s";
+    private static final String DAL_TRANSACTION_EXECUTE_ROLLBACK_ONLY = "Transaction::executeRollbackOnly:%s";
+    private static final ILogger iLogger = DalElementFactory.DEFAULT.getILogger();
 
-	public void validate(String desiganateLogicDbName, String desiganateShard) throws SQLException {
-		if (desiganateLogicDbName == null || desiganateLogicDbName.length() == 0)
-			throw new DalException(ErrorCode.LogicDbEmpty);
+    public DalTransaction(DalConnection connHolder, String logicDbName) throws SQLException {
+        this.logicDbName = logicDbName;
+        this.connHolder = connHolder;
+        connHolder.getConn().setAutoCommit(false);
+        this.logger = DalClientFactory.getDalLogger();
+    }
 
-		if (!desiganateLogicDbName.equals(this.logicDbName))
-			throw new DalException(ErrorCode.TransactionDistributed, this.logicDbName, desiganateLogicDbName);
+    public void validate(String desiganateLogicDbName, String desiganateShard) throws SQLException {
+        if (desiganateLogicDbName == null || desiganateLogicDbName.length() == 0)
+            throw new DalException(ErrorCode.LogicDbEmpty);
 
-		String curShard = connHolder.getShardId();
-		if (curShard == null)
-			return;
+        if (!desiganateLogicDbName.equals(this.logicDbName))
+            throw new DalException(ErrorCode.TransactionDistributed, this.logicDbName, desiganateLogicDbName);
 
-		if (desiganateShard == null)
-			return;
+        String curShard = connHolder.getShardId();
+        if (curShard == null)
+            return;
 
-		if (!curShard.equals(desiganateShard))
-			throw new DalException(ErrorCode.TransactionDistributedShard, curShard, desiganateShard);
-	}
+        if (desiganateShard == null)
+            return;
 
-	public String getLogicDbName() {
-		return logicDbName;
-	}
+        if (!curShard.equals(desiganateShard))
+            throw new DalException(ErrorCode.TransactionDistributedShard, curShard, desiganateShard);
+    }
 
-	public DalConnection getConnection() {
-		return connHolder;
-	}
+    public String getLogicDbName() {
+        return logicDbName;
+    }
 
-	public void register(DalTransactionListener listener) {
-		if (listeners == null)
-			listeners = new ArrayList<>();
+    public DalConnection getConnection() {
+        return connHolder;
+    }
 
-		listeners.add(listener);
-	}
+    public void register(DalTransactionListener listener) {
+        if (listeners == null)
+            listeners = new ArrayList<>();
 
-	public List<DalTransactionListener> getListeners() {
-		return listeners;
-	}
+        listeners.add(listener);
+    }
 
-	public int getLevel() {
-		return level;
-	}
+    public List<DalTransactionListener> getListeners() {
+        return listeners;
+    }
 
-	public boolean isRolledBack() {
-		return rolledBack;
-	}
+    public int getLevel() {
+        return level;
+    }
 
-	public int startTransaction() throws SQLException {
-		if (rolledBack || completed)
-			throw new DalException(ErrorCode.TransactionState);
+    public boolean isRolledBack() {
+        return rolledBack;
+    }
 
-		return level++;
-	}
+    public int startTransaction() throws SQLException {
+        if (rolledBack || completed)
+            throw new DalException(ErrorCode.TransactionState);
 
-	public void endTransaction(int startLevel) throws SQLException {
-		if (rolledBack || completed)
-			throw new DalException(ErrorCode.TransactionState);
+        return level++;
+    }
 
-		if (startLevel != (level - 1)) {
-			rollback();
-			throw new DalException(ErrorCode.TransactionLevelMatch, (level - 1), startLevel);
-		}
+    public void endTransaction(int startLevel) throws SQLException {
+        if (rolledBack || completed)
+            throw new DalException(ErrorCode.TransactionState);
 
-		if (level > FIRST_LEVEL) {
-			setTransactionStatusOnCommit();
-			level--;
-			return;
-		}
+        if (startLevel != (level - 1)) {
+            rollback();
+            throw new DalException(ErrorCode.TransactionLevelMatch, (level - 1), startLevel);
+        }
 
-		if (status == DalTransactionStatus.Rollback || status == DalTransactionStatus.Conflict) {
-			setTransactionStatusOnCommit();
-			rollback();
-			throwExceptionOnCommitConflicted();
-		}
+        if (level > FIRST_LEVEL) {
+            setTransactionStatusOnCommit();
+            level--;
+            return;
+        }
 
-		commit();
-	}
+        if (status == DalTransactionStatus.Rollback || status == DalTransactionStatus.Conflict) {
+            setTransactionStatusOnCommit();
+            rollback();
+            throwExceptionOnCommitConflicted();
+        }
 
-	private void commit() throws SQLException {
-		// Back to the first transaction, about to commit
-		beforeCommit();
-		level = 0;
-		completed = true;
-		cleanup(true);
-		afterCommit();
-	}
+        // rollback transaction on user's request
+        if (rollbackOnly) {
+            executeRollbackOnly();
+            return;
+        }
 
-	private void setTransactionStatusOnCommit() {
-		if (status == DalTransactionStatus.Initial) {
-			status = DalTransactionStatus.Commit;
-		} else if (status == DalTransactionStatus.Rollback) {
-			status = DalTransactionStatus.Conflict;
-		}
+        commit();
+    }
 
-		DalTransactionStatusWrapper wrapper = getTransactionStatusWrapper();
-		wrapper.setTransactionStatus(status);
-		wrapper.setActualStatus(DalTransactionStatus.Commit);
-	}
+    private void commit() throws SQLException {
+        // Back to the first transaction, about to commit
+        beforeCommit();
+        level = 0;
+        completed = true;
+        cleanup(true);
+        afterCommit();
+    }
 
-	private void throwExceptionOnCommitConflicted() throws SQLException {
-		String message = transactionHelper.getTransactionConflictMessage(transactionStatusWrapperMap);
-		transactionStatusWrapperMap.clear();
-		throw new DalTransactionConflictException(ErrorCode.TransactionStateConflicted, message);
-	}
+    private void setTransactionStatusOnCommit() {
+        if (status == DalTransactionStatus.Initial) {
+            status = DalTransactionStatus.Commit;
+        } else if (status == DalTransactionStatus.Rollback) {
+            status = DalTransactionStatus.Conflict;
+        }
 
-	public void rollbackTransaction() throws SQLException {
-		if (rolledBack)
-			return;
+        DalTransactionStatusWrapper wrapper = getTransactionStatusWrapper();
+        wrapper.setTransactionStatus(status);
+        wrapper.setActualStatus(DalTransactionStatus.Commit);
+    }
 
-		if (level > FIRST_LEVEL) {
-			setTransactionStatusOnRollback();
-			level--;
-			return;
-		}
+    private void throwExceptionOnCommitConflicted() throws SQLException {
+        String message = transactionHelper.getTransactionConflictMessage(transactionStatusWrapperMap);
+        transactionStatusWrapperMap.clear();
+        throw new DalTransactionConflictException(ErrorCode.TransactionStateConflicted, message);
+    }
 
-		if (status == DalTransactionStatus.Commit || status == DalTransactionStatus.Conflict) {
-			setTransactionStatusOnRollback();
-			logExceptionOnRollbackConflicted();
-		}
+    public void rollbackTransaction() throws SQLException {
+        if (rolledBack)
+            return;
 
-		rollback();
-	}
+        if (level > FIRST_LEVEL) {
+            setTransactionStatusOnRollback();
+            level--;
+            return;
+        }
 
-	private void rollback() {
-		beforeRollback();
-		rolledBack = true;
-		// Even the rollback fails, we still set the flag to true;
-		cleanup(false);
-		afterRollback();
-	}
+        if (status == DalTransactionStatus.Commit || status == DalTransactionStatus.Conflict) {
+            setTransactionStatusOnRollback();
+            logExceptionOnRollbackConflicted();
+        }
 
-	private void logExceptionOnRollbackConflicted() {
-		String message = transactionHelper.getTransactionConflictMessage(transactionStatusWrapperMap);
-		transactionStatusWrapperMap.clear();
-		DalTransactionConflictException exception =
-				new DalTransactionConflictException(ErrorCode.TransactionStateConflicted, message);
-		logger.error(ErrorCode.TransactionStateConflicted.getMessage(), exception);
-	}
+        // rollback transaction on user's request
+        if (rollbackOnly) {
+            executeRollbackOnly();
+            return;
+        }
 
-	private void setTransactionStatusOnRollback() {
-		if (status == DalTransactionStatus.Initial) {
-			status = DalTransactionStatus.Rollback;
-		} else if (status == DalTransactionStatus.Commit) {
-			status = DalTransactionStatus.Conflict;
-		}
+        rollback();
+    }
 
-		DalTransactionStatusWrapper wrapper = getTransactionStatusWrapper();
-		wrapper.setTransactionStatus(status);
-		wrapper.setActualStatus(DalTransactionStatus.Rollback);
-	}
+    private void rollback() {
+        beforeRollback();
+        rolledBack = true;
+        // Even the rollback fails, we still set the flag to true;
+        cleanup(false);
+        afterRollback();
+    }
 
-	public void setRollbackErrorMessage(Throwable e) {
-		if (e == null)
-			return;
+    private void logExceptionOnRollbackConflicted() {
+        String message = transactionHelper.getTransactionConflictMessage(transactionStatusWrapperMap);
+        transactionStatusWrapperMap.clear();
+        DalTransactionConflictException exception =
+                new DalTransactionConflictException(ErrorCode.TransactionStateConflicted, message);
+        logger.error(ErrorCode.TransactionStateConflicted.getMessage(), exception);
+    }
 
-		String errorMessage = e.getMessage();
-		if (errorMessage == null || errorMessage.isEmpty())
-			return;
+    private void setTransactionStatusOnRollback() {
+        if (status == DalTransactionStatus.Initial) {
+            status = DalTransactionStatus.Rollback;
+        } else if (status == DalTransactionStatus.Commit) {
+            status = DalTransactionStatus.Conflict;
+        }
 
-		DalTransactionStatusWrapper wrapper = getTransactionStatusWrapper();
-		wrapper.setErrorMessage(errorMessage);
-	}
+        DalTransactionStatusWrapper wrapper = getTransactionStatusWrapper();
+        wrapper.setTransactionStatus(status);
+        wrapper.setActualStatus(DalTransactionStatus.Rollback);
+    }
 
-	private DalTransactionStatusWrapper getTransactionStatusWrapper() {
-		DalTransactionStatusWrapper wrapper = transactionStatusWrapperMap.get(level);
-		if (wrapper == null) {
-			wrapper = new DalTransactionStatusWrapper();
-			transactionStatusWrapperMap.put(level, wrapper);
-		}
+    public void setRollbackErrorMessage(Throwable e) {
+        if (e == null)
+            return;
 
-		return wrapper;
-	}
+        String errorMessage = e.getMessage();
+        if (errorMessage == null || errorMessage.isEmpty())
+            return;
 
-	private void cleanup(boolean commit) {
-		Connection conn = connHolder.getConn();
-		try {
-			if (commit)
-				conn.commit();
-			else
-				conn.rollback();
-		} catch (Throwable e) {
-			logger.error("Can not commit or rollback on current connection", e);
-		}
+        DalTransactionStatusWrapper wrapper = getTransactionStatusWrapper();
+        wrapper.setErrorMessage(errorMessage);
+    }
 
-		try {
-			conn.setAutoCommit(true);
-		} catch (Throwable e) {
-			logger.error("Can not setAutoCommit on current connection", e);
-		}
+    private DalTransactionStatusWrapper getTransactionStatusWrapper() {
+        DalTransactionStatusWrapper wrapper = transactionStatusWrapperMap.get(level);
+        if (wrapper == null) {
+            wrapper = new DalTransactionStatusWrapper();
+            transactionStatusWrapperMap.put(level, wrapper);
+        }
 
-		connHolder.close();
-		DalTransactionManager.clearCurrentTransaction();
-	}
+        return wrapper;
+    }
 
-	private void beforeCommit() throws SQLException {
-		if (listeners == null)
-			return;
+    private void cleanup(boolean commit) {
+        Connection conn = connHolder.getConn();
+        try {
+            if (commit)
+                conn.commit();
+            else
+                conn.rollback();
+        } catch (Throwable e) {
+            logger.error("Can not commit or rollback on current connection", e);
+        }
 
-		// The before commit can cause transaction termination by throwing exception
-		for (DalTransactionListener listener : listeners)
-			listener.beforeCommit();
-	}
+        try {
+            conn.setAutoCommit(true);
+        } catch (Throwable e) {
+            logger.error("Can not setAutoCommit on current connection", e);
+        }
 
-	private void beforeRollback() {
-		if (listeners == null)
-			return;
+        connHolder.close();
+        DalTransactionManager.clearCurrentTransaction();
+    }
 
-		for (DalTransactionListener listener : listeners) {
-			try {
-				listener.beforeRollback();
-			} catch (Throwable e) {
-				logError(e);
-			}
-		}
-	}
+    private void beforeCommit() throws SQLException {
+        if (listeners == null)
+            return;
 
-	private void afterCommit() {
-		if (listeners == null)
-			return;
+        // The before commit can cause transaction termination by throwing exception
+        for (DalTransactionListener listener : listeners)
+            listener.beforeCommit();
+    }
 
-		for (DalTransactionListener listener : listeners) {
-			try {
-				listener.afterCommit();
-			} catch (Throwable e) {
-				logError(e);
-			}
-		}
-	}
+    private void beforeRollback() {
+        if (listeners == null)
+            return;
 
-	private void afterRollback() {
-		if (listeners == null)
-			return;
+        for (DalTransactionListener listener : listeners) {
+            try {
+                listener.beforeRollback();
+            } catch (Throwable e) {
+                logError(e);
+            }
+        }
+    }
 
-		for (DalTransactionListener listener : listeners) {
-			try {
-				listener.afterRollback();
-			} catch (Throwable e) {
-				logError(e);
-			}
-		}
-	}
+    private void afterCommit() {
+        if (listeners == null)
+            return;
 
-	private void logError(Throwable e) {
-		try {
-			logger.error(e.getMessage(), e);
-		} catch (Throwable e2) {
-			System.err.println(e2);
-		}
-	}
+        for (DalTransactionListener listener : listeners) {
+            try {
+                listener.afterCommit();
+            } catch (Throwable e) {
+                logError(e);
+            }
+        }
+    }
+
+    private void afterRollback() {
+        if (listeners == null)
+            return;
+
+        for (DalTransactionListener listener : listeners) {
+            try {
+                listener.afterRollback();
+            } catch (Throwable e) {
+                logError(e);
+            }
+        }
+    }
+
+    private void logError(Throwable e) {
+        try {
+            logger.error(e.getMessage(), e);
+        } catch (Throwable e2) {
+            System.err.println(e2);
+        }
+    }
+
+    protected void setRollbackOnly() {
+        this.rollbackOnly = true;
+        iLogger.logEvent(DAL, String.format(DAL_TRANSACTION_SET_ROLLBACK_ONLY, logicDbName == null ? "" : logicDbName),
+                getRollbackOnlyMessage());
+    }
+
+    private void executeRollbackOnly() {
+        final String name =
+                String.format(DAL_TRANSACTION_EXECUTE_ROLLBACK_ONLY, logicDbName == null ? "" : logicDbName);
+        final String msg = getRollbackOnlyMessage();
+
+        iLogger.logTransaction(DAL, name, msg, new Callback() {
+            @Override
+            public void execute() throws Exception {
+                rollback();
+                iLogger.logEvent(DAL, name, msg);
+            }
+        });
+    }
+
+    private String getRollbackOnlyMessage() {
+        String dbName = logicDbName == null ? "" : logicDbName;
+        String connectionId = "";
+        if (connHolder != null) {
+            Connection con = connHolder.getConn();
+            if (con != null) {
+                connectionId = con.toString();
+            }
+        }
+
+        return String.format("LogicDbName:%s, ConnectionId:%s", dbName, connectionId);
+    }
+
 }
