@@ -2,6 +2,7 @@ package com.ctrip.platform.dal.cluster.strategy.rule;
 
 import com.ctrip.platform.dal.cluster.SQLData;
 import com.ctrip.platform.dal.cluster.exception.DalClusterException;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 
 import java.util.Map;
 import java.util.Properties;
@@ -30,8 +31,17 @@ public class ModShardRule implements ShardRule {
     }
 
     @Override
-    public String shardByFields(SQLData fields) {
-        return shardByValue(fields.getValue(shardKey));
+    public String shardByColumnValue(String columnName, Object columnValue) {
+        if (columnName == null)
+            throw new DalClusterException("Column name invalid");
+        if (!columnName.equalsIgnoreCase(shardKey))
+            throw new DalClusterException("Column name invalid");
+        return shardByValue(columnValue);
+    }
+
+    @Override
+    public String shardByFields(NamedSqlParameters params) {
+        return shardByValue(params.getParamValue(shardKey));
     }
 
     @Override

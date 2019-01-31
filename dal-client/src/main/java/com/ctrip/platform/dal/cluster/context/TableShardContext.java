@@ -1,6 +1,7 @@
 package com.ctrip.platform.dal.cluster.context;
 
 import com.ctrip.platform.dal.cluster.SQLData;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 
 import java.util.Map;
 
@@ -11,6 +12,6 @@ public interface TableShardContext {
 
     String getTargetTableName();
 
-    Map<Integer, SQLData> getIndexedRowSet();
+    Map<Integer, NamedSqlParameters> getIndexedRowSet();
 
 }

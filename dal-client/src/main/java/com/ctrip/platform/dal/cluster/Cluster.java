@@ -1,5 +1,8 @@
 package com.ctrip.platform.dal.cluster;
 
+import com.ctrip.platform.dal.cluster.hint.ShardHints;
+import com.ctrip.platform.dal.cluster.parameter.IndexedSqlParameters;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.dao.DalResultSetExtractor;
 import com.ctrip.platform.dal.dao.ResultMerger;
 
@@ -13,24 +16,22 @@ public interface Cluster {
 
     String getClusterName();
 
-    // 集合并发可变性
-    // 考虑用数组
-    // 回调命名
-    void insert(String logicTableName, SQLHandler handler, SQLData... rowSet) throws SQLException;
-    void insert(String logicTableName, Iterable<SQLData> rowSet, SQLHandler handler) throws SQLException;
+    int insert(String logicTableName, NamedSqlParameters insertRow) throws SQLException;
 
-    void batchInsert(String logicTableName, Iterable<SQLData> rowSet, SQLHandler handler) throws SQLException;
+    int[] insert(String logicTableName, NamedSqlParameters[] insertRows) throws SQLException;
 
-    <T> T query(String logicTableName, NamedSQLParameters params, SQLHandler handler,
-                ResultMerger<T> merger, DalResultSetExtractor<T> extractor) throws SQLException;
+    int combinedInsert(String logicTableName, NamedSqlParameters[] insertRows) throws SQLException;
 
-    <T> T query(String logicTableName, SQLHandler handler,
-                ResultMerger<T> merger, DalResultSetExtractor<T> extractor, String columnName, Object... columnValues) throws SQLException;
+    int[] batchInsert(String logicTableName, NamedSqlParameters[] insertRows) throws SQLException;
 
-    /**
-     * 自定义SQL，指定Shard
-     * 部分Case自动计算分片
-     */
+    void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue) throws SQLException;
 
+    void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue, RouteHints routeHints) throws SQLException;
+
+    void query(String logicTableName, String[] selectColumns, NamedSqlParameters params) throws SQLException;
+
+    void query(String logicTableName, String[] selectColumns, NamedSqlParameters params, RouteHints routeHints) throws SQLException;
+
+    void query(String sqlTemplate, IndexedSqlParameters params, RouteHints routeHints) throws SQLException;
 
 }

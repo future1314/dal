@@ -1,6 +1,7 @@
 package com.ctrip.platform.dal.cluster.strategy.rule;
 
 import com.ctrip.platform.dal.cluster.SQLData;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 
 import java.util.Map;
 
@@ -11,6 +12,8 @@ public interface ShardRule extends Forkable<ShardRule> {
 
     String shardByValue(Object value);
 
-    String shardByFields(SQLData fields);
+    String shardByColumnValue(String columnName, Object columnValue);
+
+    String shardByFields(NamedSqlParameters fields);
 
 }

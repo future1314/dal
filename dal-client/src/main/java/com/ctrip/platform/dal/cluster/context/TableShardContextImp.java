@@ -1,6 +1,7 @@
 package com.ctrip.platform.dal.cluster.context;
 
 import com.ctrip.platform.dal.cluster.SQLData;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,7 +12,7 @@ import java.util.Map;
 public class TableShardContextImp implements TableShardContext {
 
     private String targetTableName;
-    private Map<Integer, SQLData> indexedRowSet = new HashMap<>();
+    private Map<Integer, NamedSqlParameters> indexedRowSet = new HashMap<>();
 
     @Override
     public String getTargetTableName() {
@@ -19,7 +20,7 @@ public class TableShardContextImp implements TableShardContext {
     }
 
     @Override
-    public Map<Integer, SQLData> getIndexedRowSet() {
+    public Map<Integer, NamedSqlParameters> getIndexedRowSet() {
         return indexedRowSet;
     }
 
@@ -27,7 +28,7 @@ public class TableShardContextImp implements TableShardContext {
         this.targetTableName = targetTableName;
     }
 
-    public void addRow(int index, SQLData row) {
+    public void addRow(int index, NamedSqlParameters row) {
         indexedRowSet.put(index, row);
     }
 
