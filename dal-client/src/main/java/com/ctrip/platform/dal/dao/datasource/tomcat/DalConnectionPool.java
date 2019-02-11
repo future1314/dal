@@ -22,6 +22,28 @@ public class DalConnectionPool extends ConnectionPool {
     }
 
     @Override
+    public Connection getConnection() throws SQLException {
+        long startTime = System.currentTimeMillis();
+
+        Connection connection;
+        try {
+            connection = super.getConnection();
+        } catch (Exception ex) {
+            logger.error("[getConnection]" + this, ex);
+            connectionListener.onGetConnectionFailed(getName(), getSize(), getActive(), getIdle(), getWaitCount(), ex, startTime);
+            throw ex;
+        }
+
+        try {
+            connectionListener.onGetConnection(getName(), getSize(), getActive(), getIdle(), getWaitCount(), startTime);
+        } catch (Exception e) {
+            logger.error("[getConnection]" + this, e);
+        }
+
+        return connection;
+    }
+
+    @Override
     protected PooledConnection createConnection(long now, PooledConnection notUsed, String username, String password)
             throws SQLException {
         long startTime = System.currentTimeMillis();
@@ -64,6 +86,28 @@ public class DalConnectionPool extends ConnectionPool {
         }
 
         super.abandon(con);
+    }
+
+    @Override
+    protected PooledConnection borrowConnection(long now, PooledConnection con, String username, String password) throws SQLException {
+        long startTime = System.currentTimeMillis();
+
+        PooledConnection pooledConnection;
+        try {
+            pooledConnection = super.borrowConnection(now, con, username, password);
+        } catch (Exception ex) {
+            String connectionUrl = LoggerHelper.getSimplifiedDBUrl(getPoolProperties().getUrl());
+            connectionListener.onBorrowIdleConnectionFailed(getName(), connectionUrl, ex, startTime);
+            throw ex;
+        }
+
+        try {
+            connectionListener.onBorrowIdleConnection(getName(), getConnection(con), startTime);
+        } catch (Exception var11) {
+            logger.error("[borrow]" + this, var11);
+        }
+
+        return pooledConnection;
     }
 
     public static void setConnectionListener(ConnectionListener connectionListener) {
