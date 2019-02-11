@@ -19,13 +19,12 @@ public abstract class AbstractConnectionListener implements ConnectionListener {
     private String ON_GET_CONNECTION_FAILED_FORMAT = "[onGetConnectionFailed]%s, %s";
 
     public void onGetConnection(String poolDesc, int size, int busySize, int idleSize, int waitSize, long startTime) {
-        LOGGER.info(String.format(this.ON_GET_CONNECTION_FORMAT, poolDesc, size, busySize, idleSize, waitSize));
+        LOGGER.info(String.format(ON_GET_CONNECTION_FORMAT, poolDesc, size, busySize, idleSize, waitSize));
     }
 
     public void onGetConnectionFailed(String poolDesc, int size, int busySize, int idleSize, int waitSize, Exception ex, long startTime) {
-        if (ex != null) {
-            LOGGER.error(String.format(this.ON_GET_CONNECTION_FAILED_FORMAT, poolDesc, size, busySize, idleSize, waitSize), ex);
-        }
+        if (ex != null)
+            LOGGER.error(String.format(ON_GET_CONNECTION_FAILED_FORMAT, poolDesc, size, busySize, idleSize, waitSize), ex);
     }
 
     @Override
@@ -74,25 +73,21 @@ public abstract class AbstractConnectionListener implements ConnectionListener {
     }
 
     public void onBorrowIdleConnection(String poolDesc, Connection connection, long startTime) {
-        if (connection != null) {
-            this.doOnBorrowIdleConnection(poolDesc, connection, startTime);
-        }
-
+        if (connection != null)
+            doOnBorrowIdleConnection(poolDesc, connection, startTime);
     }
 
     public void onBorrowIdleConnectionFailed(String poolDesc, String connDesc, Exception e, long startTime) {
-        if (e != null) {
-            this.doOnBorrowIdleConnectionFailed(poolDesc, connDesc, e, startTime);
-        }
-
+        if (e != null)
+            doOnBorrowIdleConnectionFailed(poolDesc, connDesc, e, startTime);
     }
 
     protected void doOnBorrowIdleConnection(String poolDesc, Connection connection, long startTime) {
-        this.logInfo(this.ON_BORROW_IDLE_CONNECTION_FORMAT, poolDesc, connection);
+        logInfo(ON_BORROW_IDLE_CONNECTION_FORMAT, poolDesc, connection);
     }
 
     protected void doOnBorrowIdleConnectionFailed(String poolDesc, String connDesc, Exception e, long startTime) {
-        this.logError(this.ON_BORROW_IDLE_CONNECTION_FAILED_FORMAT, poolDesc, connDesc, e);
+        logError(ON_BORROW_IDLE_CONNECTION_FAILED_FORMAT, poolDesc, connDesc, e);
     }
 
     private void logInfo(String format, String poolDesc, Connection connection) {

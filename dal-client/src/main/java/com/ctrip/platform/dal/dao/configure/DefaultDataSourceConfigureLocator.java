@@ -4,6 +4,7 @@ import com.ctrip.platform.dal.common.enums.IPDomainStatus;
 import com.ctrip.platform.dal.dao.helper.ConnectionStringKeyHelper;
 import com.ctrip.platform.dal.dao.helper.DalElementFactory;
 import com.ctrip.platform.dal.dao.helper.PoolPropertiesHelper;
+import com.ctrip.platform.dal.dao.log.DalLogType;
 import com.ctrip.platform.dal.dao.log.ILogger;
 
 import java.util.HashMap;
@@ -28,7 +29,6 @@ public class DefaultDataSourceConfigureLocator implements DataSourceConfigureLoc
     private Map<String, DataSourceConfigure> dataSourceConfiguresCache = new ConcurrentHashMap<>();
 
     private static final String SEPARATOR = "\\.";
-    protected static final String DAL = "DAL";
     private static final String DATASOURCE_PROPERTIES_EXCEPTION_MESSAGE =
             "An error occured while getting datasource properties.";
     private static final String APP_OVERRIDE_RESULT = "App override result: ";
@@ -37,7 +37,7 @@ public class DefaultDataSourceConfigureLocator implements DataSourceConfigureLoc
     private static final String CONNECTION_URL = "connection url:";
 
     private String FINAL_OVERRIDE_RESULT_FORMAT = "Final override result: %s";
-    protected String POOLPROPERTIES_MERGEPOOLPROPERTIES_FORMAT = "PoolProperties::mergePoolProperties:%s";
+    protected String MERGEPOOLPROPERTIES_FORMAT = "MergePoolProperties:%s";
 
     @Override
     public void addUserPoolPropertiesConfigure(String name, PoolPropertiesConfigure configure) {
@@ -194,7 +194,7 @@ public class DefaultDataSourceConfigureLocator implements DataSourceConfigureLoc
             return null;
 
         String name = connectionStringConfigure.getName();
-        String logName = String.format(POOLPROPERTIES_MERGEPOOLPROPERTIES_FORMAT, name);
+        String logName = String.format(MERGEPOOLPROPERTIES_FORMAT, name);
         DataSourceConfigure c = cloneDataSourceConfigure(null);
 
         try {
@@ -222,7 +222,7 @@ public class DefaultDataSourceConfigureLocator implements DataSourceConfigureLoc
         // override config from connection settings,datasource.xml
         overrideConnectionStringConfigureAndDataSourceXml(connectionStringConfigure, c, connectionString, name);
 
-        LOGGER.logEvent(DAL, logName,
+        LOGGER.logEvent(DalLogType.DATASOURCE_CONFIGURE, logName,
                 String.format(FINAL_OVERRIDE_RESULT_FORMAT, poolPropertiesHelper.propertiesToString(c.toProperties())));
     }
 
@@ -234,7 +234,7 @@ public class DefaultDataSourceConfigureLocator implements DataSourceConfigureLoc
         overrideProperties(c.getProperties(), appProperties);
         String log = APP_OVERRIDE_RESULT + poolPropertiesHelper.propertiesToString(c.getProperties());
         LOGGER.info(log);
-        LOGGER.logEvent(DAL, logName, log);
+        LOGGER.logEvent(DalLogType.DATASOURCE_CONFIGURE, logName, log);
     }
 
     private void overrideDataSourceLevelProperties(PropertiesWrapper wrapper, DataSourceConfigure c, String name,
@@ -256,7 +256,7 @@ public class DefaultDataSourceConfigureLocator implements DataSourceConfigureLoc
             overrideProperties(c.getProperties(), p1);
             String log = name + OVERRIDE_RESULT + poolPropertiesHelper.propertiesToString(c.getProperties());
             LOGGER.info(log);
-            LOGGER.logEvent(DAL, logName, log);
+            LOGGER.logEvent(DalLogType.DATASOURCE_CONFIGURE, logName, log);
         } else {
             String possibleName = DataSourceConfigureParser.getInstance().getPossibleName(name);
             possibleName = ConnectionStringKeyHelper.getKeyName(possibleName);
@@ -266,7 +266,7 @@ public class DefaultDataSourceConfigureLocator implements DataSourceConfigureLoc
                 String log =
                         possibleName + OVERRIDE_RESULT + poolPropertiesHelper.propertiesToString(c.getProperties());
                 LOGGER.info(log);
-                LOGGER.logEvent(DAL, logName, log);
+                LOGGER.logEvent(DalLogType.DATASOURCE_CONFIGURE, logName, log);
             }
         }
     }

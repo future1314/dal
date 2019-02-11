@@ -4,6 +4,7 @@ import com.ctrip.platform.dal.dao.configure.DataSourceConfigure;
 import com.ctrip.platform.dal.dao.configure.DataSourceConfigureConstants;
 import com.ctrip.platform.dal.dao.datasource.tomcat.DalTomcatDataSource;
 import com.ctrip.platform.dal.dao.helper.*;
+import com.ctrip.platform.dal.dao.log.DalLogType;
 import com.ctrip.platform.dal.dao.log.ILogger;
 import org.apache.tomcat.jdbc.pool.PoolProperties;
 import org.apache.tomcat.jdbc.pool.Validator;
@@ -17,9 +18,7 @@ public class SingleDataSource implements DataSourceConfigureConstants {
     private String name;
     private DataSourceConfigure dataSourceConfigure;
     private DataSource dataSource;
-
-    private static final String DAL = "DAL";
-    private static final String DATASOURCE_CREATE_DATASOURCE = "DataSource::createDataSource:%s";
+    private static final String CREATE_DATASOURCE = "CreateDataSource:%s";
 
     public String getName() {
         return name;
@@ -55,7 +54,7 @@ public class SingleDataSource implements DataSourceConfigureConstants {
                     poolProperties.getDriverClassName(), dataSourceConfigure.getConnectionUrl());
             long startTime = System.currentTimeMillis();
             dataSource.createPool();
-            LOGGER.logTransaction(DAL, String.format(DATASOURCE_CREATE_DATASOURCE, name), message, startTime);
+            LOGGER.logTransaction(DalLogType.DATASOURCE_CREATE_DATASOURCE, String.format(CREATE_DATASOURCE, name), message, startTime);
             LOGGER.info(message);
         } catch (Throwable e) {
             LOGGER.error(String.format("Error creating pool for data source %s", name), e);
