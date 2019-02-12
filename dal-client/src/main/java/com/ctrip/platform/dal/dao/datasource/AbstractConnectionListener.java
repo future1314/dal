@@ -15,16 +15,16 @@ public abstract class AbstractConnectionListener implements ConnectionListener {
     private String ON_ABANDON_CONNECTION_FORMAT = "[onAbandonConnection]%s, %s";
     private String ON_BORROW_IDLE_CONNECTION_FORMAT = "[onBorrowIdleConnection]%s, %s";
     private String ON_BORROW_IDLE_CONNECTION_FAILED_FORMAT = "[onBorrowIdleConnectionFailed]%s, %s";
-    private String ON_GET_CONNECTION_FORMAT = "[OnGetConnection]%s, total size: %d, busy size: %d, idle size: %d, wait size: %d";
-    private String ON_GET_CONNECTION_FAILED_FORMAT = "[onGetConnectionFailed]%s, %s";
+    private String ON_GET_CONNECTION_FORMAT = "[OnGetConnection]%s, %s, total size: %d, busy size: %d, idle size: %d, wait size: %d";
+    private String ON_GET_CONNECTION_FAILED_FORMAT = "[onGetConnectionFailed]%s, %s, total size: %d, busy size: %d, idle size: %d, wait size: %d";
 
-    public void onGetConnection(String poolDesc, int size, int busySize, int idleSize, int waitSize, long startTime) {
-        LOGGER.info(String.format(ON_GET_CONNECTION_FORMAT, poolDesc, size, busySize, idleSize, waitSize));
+    public void onGetConnection(String poolDesc, String connectionUrl, int size, int busySize, int idleSize, int waitSize, long startTime) {
+        LOGGER.info(String.format(ON_GET_CONNECTION_FORMAT, poolDesc, connectionUrl, size, busySize, idleSize, waitSize));
     }
 
-    public void onGetConnectionFailed(String poolDesc, int size, int busySize, int idleSize, int waitSize, Exception ex, long startTime) {
+    public void onGetConnectionFailed(String poolDesc, String connectionUrl, int size, int busySize, int idleSize, int waitSize, Exception ex, long startTime) {
         if (ex != null)
-            LOGGER.error(String.format(ON_GET_CONNECTION_FAILED_FORMAT, poolDesc, size, busySize, idleSize, waitSize), ex);
+            LOGGER.error(String.format(ON_GET_CONNECTION_FAILED_FORMAT, poolDesc, connectionUrl, size, busySize, idleSize, waitSize), ex);
     }
 
     @Override

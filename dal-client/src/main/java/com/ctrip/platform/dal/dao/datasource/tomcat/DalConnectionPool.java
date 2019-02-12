@@ -9,6 +9,7 @@ import org.apache.tomcat.jdbc.pool.PooledConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -26,16 +27,23 @@ public class DalConnectionPool extends ConnectionPool {
         long startTime = System.currentTimeMillis();
 
         Connection connection;
+        String connectionUrl = null;
+
+        try {
+            connectionUrl = LoggerHelper.getSimplifiedDBUrl(getPoolProperties().getUrl());
+        } catch (Exception ex) {
+            logger.error("[getConnectionUrl]" + this, ex);
+        }
+
         try {
             connection = super.getConnection();
         } catch (Exception ex) {
-            logger.error("[getConnection]" + this, ex);
-            connectionListener.onGetConnectionFailed(getName(), getSize(), getActive(), getIdle(), getWaitCount(), ex, startTime);
+            connectionListener.onGetConnectionFailed(getName(), connectionUrl, getSize(), getActive(), getIdle(), getWaitCount(), ex, startTime);
             throw ex;
         }
 
         try {
-            connectionListener.onGetConnection(getName(), getSize(), getActive(), getIdle(), getWaitCount(), startTime);
+            connectionListener.onGetConnection(getName(), connectionUrl, getSize(), getActive(), getIdle(), getWaitCount(), startTime);
         } catch (Exception e) {
             logger.error("[getConnection]" + this, e);
         }
