@@ -2,6 +2,10 @@ package com.ctrip.platform.dal.cluster.meta;
 
 import com.ctrip.platform.dal.cluster.*;
 import com.ctrip.platform.dal.cluster.context.*;
+import com.ctrip.platform.dal.cluster.hint.AllShards;
+import com.ctrip.platform.dal.cluster.hint.RouteHints;
+import com.ctrip.platform.dal.cluster.hint.Shards;
+import com.ctrip.platform.dal.cluster.hint.UserDefinedShards;
 import com.ctrip.platform.dal.cluster.parameter.IndexedSqlParameters;
 import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.cluster.parameter.NamedSqlParametersImp;
@@ -10,6 +14,7 @@ import com.ctrip.platform.dal.cluster.strategy.rule.TableNamePattern;
 import com.ctrip.platform.dal.dao.DalResultSetExtractor;
 import com.ctrip.platform.dal.dao.ResultMerger;
 
+import javax.jws.soap.SOAPBinding;
 import javax.sql.DataSource;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -78,7 +83,7 @@ public class DalCluster implements Cluster {
     }
 
     @Override
-    public void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue) throws SQLException {
+    public ResultSet query(String logicTableName, String[] selectColumns, String paramName, Object paramValue) throws SQLException {
         NamedSqlParametersImp parameters = new NamedSqlParametersImp();
         parameters.add(paramName, paramValue);
         Set<DatabaseShardContext> dbCtxs = shard(logicTableName, parameters);
@@ -88,7 +93,7 @@ public class DalCluster implements Cluster {
         String targetTableName = tbCtx.getTargetTableName();
         String sql = databaseCategory.buildQuerySql(targetTableName, selectColumns, parameters);
         PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sql, parameters);
-        ps.executeQuery();
+        return ps.executeQuery();
     }
 
     @Override
@@ -97,7 +102,7 @@ public class DalCluster implements Cluster {
     }
 
     @Override
-    public void query(String logicTableName, String[] selectColumns, NamedSqlParameters params) throws SQLException {
+    public ResultSet query(String logicTableName, String[] selectColumns, NamedSqlParameters params) throws SQLException {
         Set<DatabaseShardContext> dbCtxs = shard(logicTableName, params);
         DatabaseShardContext dbCtx = dbCtxs.iterator().next();
         DataSource ds = dbCtx.getDataSource(OperationType.QUERY);
@@ -105,7 +110,7 @@ public class DalCluster implements Cluster {
         String targetTableName = tbCtx.getTargetTableName();
         String sql = databaseCategory.buildQuerySql(targetTableName, selectColumns, params);
         PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sql, params);
-        ps.executeQuery();
+        return ps.executeQuery();
     }
 
     @Override
@@ -114,8 +119,21 @@ public class DalCluster implements Cluster {
     }
 
     @Override
-    public void query(String sqlTemplate, IndexedSqlParameters params, RouteHints routeHints) throws SQLException {
-
+    public Map<String, ResultSet> query(String sqlTemplate, IndexedSqlParameters params, RouteHints routeHints) throws SQLException {
+        Map<String, ResultSet> results = new HashMap<>();
+        Shards shards = routeHints.getDbShards();
+        if (shards instanceof UserDefinedShards) {
+            UserDefinedShards definedShards = (UserDefinedShards) shards;
+            Set<String> shardIds = definedShards.getShards();
+            for (String shardId : shardIds) {
+                DataSource ds = databaseShards.get(shardId).selectSlave().getDataSource();
+                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlTemplate, params);
+                ResultSet rs = ps.executeQuery();
+                results.put(shardId, rs);
+            }
+        } else if (shards instanceof AllShards) {
+        }
+        return results;
     }
 
     private Set<DatabaseShardContext> shard(String logicTableName, NamedSqlParameters[] rowSet) {
@@ -229,8 +247,11 @@ public class DalCluster implements Cluster {
         this.tableNamePattern = tableNamePattern;
     }
 
-    public void setDatabaseCategory(DatabaseCategory databaseCategory) {
-        this.databaseCategory = databaseCategory;
+    public void setDatabaseCategory(String strCategory) {
+        if (DatabaseCategory.MYSQL.getName().equalsIgnoreCase(strCategory))
+            databaseCategory = DatabaseCategory.MYSQL;
+        else if (DatabaseCategory.SQLSERVER.getName().equalsIgnoreCase(strCategory))
+            databaseCategory = DatabaseCategory.MYSQL;
     }
 
 }

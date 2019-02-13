@@ -41,6 +41,7 @@ public class ModShardRule implements ShardRule {
 
     @Override
     public String shardByFields(NamedSqlParameters params) {
+        if (mod == 1) return "0";
         return shardByValue(params.getParamValue(shardKey));
     }
 

@@ -12,8 +12,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.*;
 
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.dao.DalHints;
 import com.ctrip.platform.dal.dao.DalParser;
+import com.ctrip.platform.dal.dao.StatementParameters;
 import com.ctrip.platform.dal.exceptions.DalRuntimeException;
 import com.ctrip.platform.dal.sharding.idgen.IIdGeneratorConfig;
 import com.ctrip.platform.dal.sharding.idgen.IdGenerator;

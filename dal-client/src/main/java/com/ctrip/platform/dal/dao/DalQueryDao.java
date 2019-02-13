@@ -8,6 +8,8 @@ import java.util.Comparator;
 import java.util.List;
 
 
+import com.ctrip.platform.dal.cluster.Cluster;
+import com.ctrip.platform.dal.cluster.meta.DalCluster;
 import com.ctrip.platform.dal.dao.helper.DalRangedResultMerger;
 import com.ctrip.platform.dal.dao.helper.DalRowCallbackExtractor;
 import com.ctrip.platform.dal.dao.helper.DalRowMapperExtractor;
@@ -26,6 +28,8 @@ import com.ctrip.platform.dal.dao.task.*;
 public final class DalQueryDao extends BaseTaskAdapter {
 	private static final boolean NULLABLE = true;
 	private DalRequestExecutor executor;
+	Cluster cluster;
+	private DalClusterRequestExecutor clusterExecutor = new DalClusterRequestExecutor();
 
 	public DalQueryDao(String logicDbName) {
 		this(logicDbName, new DalRequestExecutor());
@@ -34,6 +38,7 @@ public final class DalQueryDao extends BaseTaskAdapter {
 	public DalQueryDao(String logicDbName, DalRequestExecutor executor) {
 		initialize(logicDbName);
 		this.executor = executor;
+		cluster = DalClientFactory.getClusterLocator().getCluster(logicDbName);
 	}
 
 	public DalClient getClient() {
@@ -122,6 +127,16 @@ public final class DalQueryDao extends BaseTaskAdapter {
 				logicDbName, builder.setLogicDbName(logicDbName).with(parameters), hints, DalClientFactory.getTaskFactory().createFreeSqlQueryTask(logicDbName, extractor), merger);
 		
 		return executor.execute(hints, request, builder.isNullable());
+	}
+
+	public <T> T queryCluster(FreeSelectSqlBuilder<T> builder, StatementParameters parameters, DalHints hints) throws SQLException {
+		ResultMerger<T> merger = builder.getResultMerger(hints);
+		DalResultSetExtractor<T> extractor = builder.getResultExtractor(hints);
+
+		DalClusterSqlTaskRequest<T> request = new DalClusterSqlTaskRequest<>(cluster,
+				builder.setLogicDbName(logicDbName).with(parameters), hints, DalClientFactory.getTaskFactory().createFreeSqlQueryTask(logicDbName, extractor), merger);
+
+		return clusterExecutor.execute(hints, request);
 	}
 	
     /**

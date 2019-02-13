@@ -6,11 +6,13 @@ import java.util.List;
 import com.ctrip.platform.dal.cluster.IndexedSQLParameter;
 import com.ctrip.platform.dal.cluster.NamedSQLParameter;
 import com.ctrip.platform.dal.cluster.NamedSQLParameters;
+import com.ctrip.platform.dal.cluster.parameter.IndexedSqlParameters;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.common.enums.ParameterDirection;
 import com.ctrip.platform.dal.common.enums.ParametersType;
 import com.ctrip.platform.dal.exceptions.DalRuntimeException;
 
-public class StatementParameters implements Iterable<IndexedSQLParameter>, NamedSQLParameters {
+public class StatementParameters implements Iterable<IndexedSQLParameter>, NamedSQLParameters, NamedSqlParameters, IndexedSqlParameters {
 	private static final String SQLHIDDENString = "*";
 
 	private List<StatementParameter> parameters = new LinkedList<StatementParameter>();
@@ -424,5 +426,43 @@ public class StatementParameters implements Iterable<IndexedSQLParameter>, Named
 	@Override
 	public Object getValue(String name) {
 		return getParameter(name).getParamValue();
+	}
+
+	@Override
+	public Object getParamValue(String paramName) {
+		return get(paramName, ParameterDirection.Input).getParamValue();
+	}
+
+	@Override
+	public int getSqlType(String paramName) {
+		return get(paramName, ParameterDirection.Input).getSqlType();
+	}
+
+	@Override
+	public Set<String> getParamNames() {
+		Set<String> names = new HashSet<>();
+		for (StatementParameter p : parameters) {
+			names.add(p.getName());
+		}
+		return names;
+	}
+
+	@Override
+	public Object getParamValue(int paramIndex) {
+		return get(paramIndex).getParamValue();
+	}
+
+	@Override
+	public int getSqlType(int paramIndex) {
+		return get(paramIndex).getSqlType();
+	}
+
+	@Override
+	public Set<Integer> getParamIndexes() {
+		Set<Integer> indexes = new HashSet<>();
+		for (StatementParameter p : parameters) {
+			indexes.add(p.getIndex());
+		}
+		return indexes;
 	}
 }

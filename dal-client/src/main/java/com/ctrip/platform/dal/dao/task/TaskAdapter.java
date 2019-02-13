@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.common.enums.DatabaseCategory;
 import com.ctrip.platform.dal.common.enums.ShardingCategory;
 import com.ctrip.platform.dal.dao.DalHintEnum;
@@ -450,6 +451,19 @@ public class TaskAdapter<T> extends BaseTaskAdapter implements DaoTask<T> {
 			this.shardingCategory = ShardingCategory.TableShard;
 		else
 			this.shardingCategory = ShardingCategory.NoShard;
+	}
+
+	public NamedSqlParameters buildParams(Map<String, ?> fields) {
+		StatementParameters parameters = new StatementParameters();
+		addParameters(parameters, fields);
+		return parameters;
+	}
+
+	public NamedSqlParameters[] buildParams(List<Map<String, ?>> fields) {
+		NamedSqlParameters[] parameters = new NamedSqlParameters[fields.size()];
+		for (int i = 0; i < fields.size(); i++)
+			parameters[i] = buildParams(fields.get(i));
+		return parameters;
 	}
 
 }

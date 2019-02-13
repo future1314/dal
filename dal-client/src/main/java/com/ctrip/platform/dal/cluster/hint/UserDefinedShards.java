@@ -7,7 +7,7 @@ import java.util.Set;
 /**
  * @author c7ch23en
  */
-public class UserDefinedShards implements ShardHints {
+public class UserDefinedShards implements Shards {
 
     private Set<String> shardIds;
 

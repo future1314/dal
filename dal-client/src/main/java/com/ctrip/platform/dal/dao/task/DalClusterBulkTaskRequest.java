@@ -3,6 +3,7 @@ package com.ctrip.platform.dal.dao.task;
 import com.ctrip.platform.dal.cluster.Cluster;
 import com.ctrip.platform.dal.cluster.SQLData;
 import com.ctrip.platform.dal.cluster.context.Row;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.dao.DalHints;
 import com.ctrip.platform.dal.dao.ResultMerger;
 
@@ -15,7 +16,7 @@ import java.util.concurrent.Callable;
 /**
  * @author c7ch23en
  */
-public class DalClusterBulkTaskRequest<K, T> implements DalClusterRequest {
+public class DalClusterBulkTaskRequest<K, T> implements DalClusterRequest<K> {
 
     private Cluster cluster;
     private String logicTableName;
@@ -41,13 +42,18 @@ public class DalClusterBulkTaskRequest<K, T> implements DalClusterRequest {
     }
 
     @Override
-    public void execute() throws SQLException {
+    public K execute() throws SQLException {
         if (task instanceof CombinedInsertTask) {
-            cluster.insert(logicTableName, rowDataList, (CombinedInsertTask) task);
+            CombinedInsertTask combinedInsertTask = (CombinedInsertTask) task;
+            NamedSqlParameters[] parameters = combinedInsertTask.buildParams(daoPojos);
+            cluster.combinedInsert(logicTableName, parameters);
         }
         if (task instanceof BatchInsertTask) {
-            cluster.batchInsert(logicTableName, rowDataList, (BatchInsertTask) task);
+            BatchInsertTask batchInsertTask = (BatchInsertTask) task;
+            NamedSqlParameters[] parameters = batchInsertTask.buildParams(daoPojos);
+            cluster.batchInsert(logicTableName, parameters);
         }
+        return null;
     }
 
     private SQLData buildRowData(Map<String, ?> pojo) {

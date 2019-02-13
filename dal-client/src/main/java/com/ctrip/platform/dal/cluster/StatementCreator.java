@@ -1,6 +1,7 @@
 package com.ctrip.platform.dal.cluster;
 
 import com.ctrip.platform.dal.cluster.exception.DalClusterException;
+import com.ctrip.platform.dal.cluster.parameter.IndexedSqlParameters;
 import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.dao.DalHints;
 import com.ctrip.platform.dal.dao.StatementParameter;
@@ -18,6 +19,12 @@ import java.util.Set;
  * @author c7ch23en
  */
 public class StatementCreator {
+
+    public PreparedStatement prepareStatement(Connection conn, String sql, IndexedSqlParameters parameters) throws SQLException {
+        PreparedStatement statement = conn.prepareStatement(sql);
+        setParameters(statement, parameters);
+        return statement;
+    }
 
     public PreparedStatement prepareStatement(Connection conn, String sql, NamedSqlParameters parameters) throws SQLException {
         PreparedStatement statement = conn.prepareStatement(sql);
@@ -38,6 +45,13 @@ public class StatementCreator {
         PreparedStatement statement = conn.prepareStatement(sql);
         setParameters(statement, parameters);
         return statement;
+    }
+
+    public void setParameters(PreparedStatement statement, IndexedSqlParameters parameters) {
+        Set<Integer> indexes = parameters.getParamIndexes();
+        for (Integer index : indexes) {
+            setObject(statement, index, parameters.getParamValue(index), parameters.getSqlType(index));
+        }
     }
 
     public void setParameters(PreparedStatement statement, NamedSqlParameters parameters) {

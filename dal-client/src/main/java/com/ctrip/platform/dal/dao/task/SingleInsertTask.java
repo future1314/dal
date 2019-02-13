@@ -8,8 +8,10 @@ import com.ctrip.platform.dal.cluster.SQLData;
 import com.ctrip.platform.dal.cluster.SQLHandler;
 import com.ctrip.platform.dal.cluster.SingleHandler;
 import com.ctrip.platform.dal.cluster.context.Row;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.dao.StatementParameters;
 
+import java.util.Map;
 import java.util.Set;
 
 public class SingleInsertTask<T> extends AbstractSingleInsertTask<T> implements SQLHandler {

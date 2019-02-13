@@ -130,6 +130,16 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
         return queryObject(new SelectSqlBuilder().where(pkSql).with(parameters).requireSingle().nullable(), hints);
     }
 
+    public T queryByPkCluster(Number id, DalHints hints) throws SQLException {
+        if (parser.getPrimaryKeyNames().length != 1)
+            throw new DalException(ErrorCode.ValidatePrimaryKeyCount);
+
+        StatementParameters parameters = new StatementParameters();
+        parameters.set(1, parser.getPrimaryKeyNames()[0], getColumnType(parser.getPrimaryKeyNames()[0]), id);
+
+        return queryObjectCluster(new SelectSqlBuilder().where(pkSql).with(parameters).requireSingle().nullable(), hints);
+    }
+
     /**
      * Query by Primary key, the key columns are pass in the pojo.
      * 
@@ -143,6 +153,14 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
         addParameters(parameters, parser.getPrimaryKeys(pk));
 
         return queryObject(new SelectSqlBuilder().where(pkSql).with(parameters).requireSingle().nullable(),
+                hints.setFields(parser.getFields(pk)));
+    }
+
+    public T queryByPkCluster(T pk, DalHints hints) throws SQLException {
+        StatementParameters parameters = new StatementParameters();
+        addParameters(parameters, parser.getPrimaryKeys(pk));
+
+        return queryObjectCluster(new SelectSqlBuilder().where(pkSql).with(parameters).requireSingle().nullable(),
                 hints.setFields(parser.getFields(pk)));
     }
 
@@ -284,6 +302,10 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
         return commonQuery(selectBuilder.mapWith(parser), hints);
     }
 
+    public T queryObjectCluster(SelectSqlBuilder selectBuilder, DalHints hints) throws SQLException {
+        return commonQueryCluster(selectBuilder.mapWith(parser), hints);
+    }
+
     /**
      * Query object for the given type for the given query builder. The requireSingle or requireFirst MUST be set on
      * builder.
@@ -385,11 +407,22 @@ public final class DalTableDao<T> extends TaskAdapter<T> {
     }
 
     private <K> K commonQuery(SelectSqlBuilder builder, DalHints hints) throws SQLException {
+        DalSqlTaskRequest<K> request = new DalSqlTaskRequest<K>(logicDbName, populate(builder), hints,
+                DalClientFactory.getTaskFactory().createQuerySqlTask((DalParser<K>) parser, (DalResultSetExtractor<K>) builder.getResultExtractor(hints)),
+                (ResultMerger<K>) builder.getResultMerger(hints));
+
+        return executor.execute(hints, request, builder.isNullable());
+/*        DalClusterSqlTaskRequest<K> request = new DalClusterSqlTaskRequest<K>(cluster, populate(builder), hints,
+                DalClientFactory.getTaskFactory().createQuerySqlTask((DalParser<K>) parser, (DalResultSetExtractor<K>) builder.getResultExtractor(hints)),
+                (ResultMerger<K>) builder.getResultMerger(hints));
+        return clusterExecutor.execute(hints, request);*/
+    }
+
+    private <K> K commonQueryCluster(SelectSqlBuilder builder, DalHints hints) throws SQLException {
 /*        DalSqlTaskRequest<K> request = new DalSqlTaskRequest<K>(logicDbName, populate(builder), hints,
                 DalClientFactory.getTaskFactory().createQuerySqlTask((DalParser<K>) parser, (DalResultSetExtractor<K>) builder.getResultExtractor(hints)),
-                (ResultMerger<K>) builder.getResultMerger(hints));*/
-
-//        return executor.execute(hints, request, builder.isNullable());
+                (ResultMerger<K>) builder.getResultMerger(hints));
+        return executor.execute(hints, request, builder.isNullable());*/
         DalClusterSqlTaskRequest<K> request = new DalClusterSqlTaskRequest<K>(cluster, populate(builder), hints,
                 DalClientFactory.getTaskFactory().createQuerySqlTask((DalParser<K>) parser, (DalResultSetExtractor<K>) builder.getResultExtractor(hints)),
                 (ResultMerger<K>) builder.getResultMerger(hints));

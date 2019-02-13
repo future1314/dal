@@ -30,6 +30,7 @@ public enum DatabaseCategory {
     private static final String COLUMN_SEPARATOR = ", ";
     private static final String VALUE_PLACEHOLDER = "?";
     private static final String CONDITION_AND_SEPARATOR = " AND ";
+    private static final String COLUMNS_ALL = "*";
 
     private String name;
 
@@ -49,7 +50,7 @@ public enum DatabaseCategory {
 
     public String buildQuerySql(String table, String[] selectColumns, NamedSqlParameters parameters) {
         String strColumns = combineColumns(Arrays.asList(selectColumns), COLUMN_SEPARATOR);
-        String whereConditions = combineConditions(parameters, CONDITION_AND_SEPARATOR);
+        String whereConditions = combineConditions(parameters, VALUE_PLACEHOLDER, CONDITION_AND_SEPARATOR);
         return String.format(QUERY_SQL_TEMPLATE, strColumns, table, whereConditions);
     }
 
@@ -57,7 +58,10 @@ public enum DatabaseCategory {
         StringBuilder sb = new StringBuilder();
         int i = 0;
         for (String column : columns) {
-            sb.append(quote(column));
+            if (column.trim().equals(COLUMNS_ALL))
+                sb.append(column);
+            else
+                sb.append(quote(column));
             if (++i < columns.size())
                 sb.append(separator);
         }
@@ -74,18 +78,14 @@ public enum DatabaseCategory {
         return sb.toString();
     }
 
-    protected String combineConditions(NamedSqlParameters parameters, String separator) {
+    protected String combineConditions(NamedSqlParameters parameters, String placeHolder, String separator) {
         StringBuilder sb = new StringBuilder();
         Set<String> columns = parameters.getParamNames();
         int i = 0;
         for (String column : columns) {
             sb.append(quote(column));
             sb.append(" = ");
-            Object value = parameters.getParamValue(column);
-            if (value instanceof Number)
-                sb.append((Number)value);
-            else
-                sb.append("'" + value.toString() + "'");
+            sb.append(placeHolder);
             if (++i < columns.size())
                 sb.append(separator);
         }

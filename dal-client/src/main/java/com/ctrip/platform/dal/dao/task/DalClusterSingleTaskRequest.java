@@ -3,6 +3,7 @@ package com.ctrip.platform.dal.dao.task;
 import com.ctrip.platform.dal.cluster.Cluster;
 import com.ctrip.platform.dal.cluster.SQLData;
 import com.ctrip.platform.dal.cluster.context.Row;
+import com.ctrip.platform.dal.cluster.parameter.NamedSqlParameters;
 import com.ctrip.platform.dal.dao.DalHints;
 
 import java.sql.SQLException;
@@ -14,7 +15,7 @@ import java.util.Map;
 /**
  * @author c7ch23en
  */
-public class DalClusterSingleTaskRequest<T> implements DalClusterRequest {
+public class DalClusterSingleTaskRequest<T> implements DalClusterRequest<int[]> {
 
     private Cluster cluster;
     private String logicTableName;
@@ -41,12 +42,21 @@ public class DalClusterSingleTaskRequest<T> implements DalClusterRequest {
     }
 
     @Override
-    public void execute() throws SQLException {
+    public int[] execute() throws SQLException {
         if (task instanceof SingleInsertTask) {
             List<SQLData> datas = new LinkedList<>();
             datas.add(rowData);
-            cluster.insert(logicTableName, datas, (SingleInsertTask) task);
+            SingleInsertTask singleInsertTask = (SingleInsertTask) task;
+            int count = daoPojos.size();
+            if (count == 1) {
+                NamedSqlParameters parameters = singleInsertTask.buildParams(daoPojos.get(0));
+                cluster.insert(logicTableName, parameters);
+            } else {
+                NamedSqlParameters[] parameters = singleInsertTask.buildParams(daoPojos);
+                cluster.insert(logicTableName, parameters);
+            }
         }
+        return new int[0];
     }
 
     private SQLData buildRowData(Map<String, ?> pojo) {

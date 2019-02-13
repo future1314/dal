@@ -5,11 +5,11 @@ import java.sql.SQLException;
 /**
  * @author c7ch23en
  */
-public interface DalClusterRequest {
+public interface DalClusterRequest<T> {
     /**
      * Do validation and preparation
      */
     void validateAndPrepare() throws SQLException;
 
-    void execute() throws SQLException;
+    T execute() throws SQLException;
 }

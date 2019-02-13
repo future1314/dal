@@ -458,4 +458,17 @@ public class SelectSqlBuilder extends AbstractTableSqlBuilder implements SelectB
         // This will be an exceptional case
         return SPACE;
     }
+
+    public String[] getSelectColumns() {
+        if (ALL_COLUMNS.equals(customized))
+            return ((DalParser) mapper).getColumnNames();
+        if (customized != null) {
+            String[] columns = new String[1];
+            columns[0] = customized;
+            return columns;
+        }
+        if (selectedColumns != null)
+            return selectedColumns;
+        throw new RuntimeException("Invalid select columns");
+    }
 }

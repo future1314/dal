@@ -46,6 +46,10 @@ public abstract class XMLConfigLoader implements ConfigLoader, XMLConfigConstant
         assertNotNull(name, String.format("Attribute '%s' of Element <%s> not found", NAME, CLUSTER));
         DalCluster cluster = new DalCluster(name);
 
+        String category = getAttribute(clusterNode, CATEGORY);
+        assertNotNull(name, String.format("Attribute '%s' of Element <%s> not found", CATEGORY, CLUSTER));
+        cluster.setDatabaseCategory(category);
+
         List<Node> databaseShardsNodes = getChildNodes(clusterNode, DATABASE_SHARDS);
         assertNotEmpty(databaseShardsNodes, String.format("Element <%s> not found", DATABASE_SHARDS));
         assertSingleton(databaseShardsNodes, String.format("More than one <%s> element found", DATABASE_SHARDS));
