@@ -111,17 +111,27 @@ public class DalTransaction {
             return;
         }
 
+        // rollback transaction on user's request
+        if (rollbackOnly) {
+            try {
+                rollbackOnlyIfNeeded();
+            } catch (Exception e) {
+                throw new SQLException(e);
+            }
+        }
+
         if (status == DalTransactionStatus.Rollback || status == DalTransactionStatus.Conflict) {
             setTransactionStatusOnCommit();
-            rollback();
+            rollbackIfNeeded();
             throwExceptionOnCommitConflicted();
         }
 
-        // rollback transaction on user's request
-        if (rollbackOnly) {
-            executeRollbackOnly();
+        commitIfNeeded();
+    }
+
+    private void commitIfNeeded() throws SQLException {
+        if (rolledBack || completed)
             return;
-        }
 
         commit();
     }
@@ -163,16 +173,26 @@ public class DalTransaction {
             return;
         }
 
+        // rollback transaction on user's request
+        if (rollbackOnly) {
+            try {
+                rollbackOnlyIfNeeded();
+            } catch (Exception e) {
+                throw new SQLException(e);
+            }
+        }
+
         if (status == DalTransactionStatus.Commit || status == DalTransactionStatus.Conflict) {
             setTransactionStatusOnRollback();
             logExceptionOnRollbackConflicted();
         }
 
-        // rollback transaction on user's request
-        if (rollbackOnly) {
-            executeRollbackOnly();
+        rollbackIfNeeded();
+    }
+
+    private void rollbackIfNeeded() {
+        if (rolledBack)
             return;
-        }
 
         rollback();
     }
@@ -310,14 +330,21 @@ public class DalTransaction {
                 getRollbackOnlyMessage());
     }
 
-    private void executeRollbackOnly() {
+    private void rollbackOnlyIfNeeded() throws Exception {
+        if (rolledBack)
+            return;
+
+        rollbackOnly();
+    }
+
+    private void rollbackOnly() throws Exception {
         final String name =
                 String.format(DAL_TRANSACTION_EXECUTE_ROLLBACK_ONLY, logicDbName == null ? "" : logicDbName);
         final String msg = getRollbackOnlyMessage();
 
         iLogger.logTransaction(DAL, name, msg, new Callback() {
             @Override
-            public void execute() throws Exception {
+            public void execute() {
                 rollback();
                 iLogger.logEvent(DAL, name, msg);
             }

@@ -31,10 +31,11 @@ public class DataSourceValidator implements ValidatorProxy {
         String transactionName = "";
 
         try {
-            isValid = validateConnection(connection, validateAction);
             connectionUrl = LoggerHelper.getSimplifiedDBUrl(connection.getMetaData().getURL());
             transactionName = String.format(VALIDATE_CONNECTION_FORMAT, connectionUrl);
-            LOGGER.logTransaction(DalLogType.DATASOURCE_VALIDATE_CONNECTION, transactionName, String.format(IS_VALID_FORMAT, isValid), startTime);
+            isValid = validateConnection(connection, validateAction);
+            LOGGER.logTransaction(DalLogType.DATASOURCE_VALIDATE_CONNECTION, transactionName,
+                    String.format(IS_VALID_FORMAT, isValid), startTime);
 
             if (!isValid) {
                 LOGGER.warn(IS_VALID_RETURN_INFO);
@@ -47,7 +48,8 @@ public class DataSourceValidator implements ValidatorProxy {
             }
             sb.append(String.format(VALIDATE_ERROR_FORMAT, e.getMessage()));
             LOGGER.warn(sb.toString());
-            LOGGER.logTransaction(DalLogType.DATASOURCE_VALIDATE_CONNECTION, transactionName, String.format(IS_VALID_FORMAT, isValid), e, startTime);
+            LOGGER.logTransaction(DalLogType.DATASOURCE_VALIDATE_CONNECTION, transactionName, sb.toString(), e,
+                    startTime);
         }
 
         return isValid;
