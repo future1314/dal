@@ -4,7 +4,7 @@ import com.ctrip.platform.dal.dao.DalHints;
 import com.ctrip.platform.dal.dao.DalTableDao;
 import com.ctrip.platform.dal.dao.KeyHolder;
 import com.ctrip.platform.dal.dao.helper.DalDefaultJpaParser;
-import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.ChildWithAllFields;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.Inheritance.ChildWithAllFields;
 import com.ctrip.platform.dal.dao.sqlbuilder.SelectSqlBuilder;
 
 import java.sql.SQLException;

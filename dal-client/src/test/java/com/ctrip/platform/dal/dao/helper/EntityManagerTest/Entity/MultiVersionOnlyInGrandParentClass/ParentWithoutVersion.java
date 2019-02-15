@@ -1,8 +1,8 @@
-package com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity;
+package com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.MultiVersionOnlyInGrandParentClass;
 
 import com.ctrip.platform.dal.dao.annotation.Database;
-import com.ctrip.platform.dal.dao.annotation.Sensitive;
 import com.ctrip.platform.dal.dao.annotation.Type;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.MultiVersionInDifferentClass.GrandParentWithVersion;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -12,23 +12,11 @@ import java.sql.Types;
 @Entity
 @Database(name = "ParentDatabase")
 @Table(name = "ParentTable")
-public class ParentWithoutId extends GrandParentWithoutVersion {
-    @Column(name = "parentId")
-    @Type(value = Types.INTEGER)
-    private int parentId;
+public class ParentWithoutVersion extends GrandParentWithVersion {
 
     @Column(name = "parentName")
     @Type(value = Types.VARCHAR)
-    @Sensitive(value = true)
     private String parentName;
-
-    public int getParentId() {
-        return parentId;
-    }
-
-    public void setParentId(int parentId) {
-        this.parentId = parentId;
-    }
 
     public String getParentName() {
         return parentName;
@@ -37,4 +25,5 @@ public class ParentWithoutId extends GrandParentWithoutVersion {
     public void setParentName(String parentName) {
         this.parentName = parentName;
     }
+
 }

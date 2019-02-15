@@ -1,4 +1,4 @@
-package com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity;
+package com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.Inheritance;
 
 import com.ctrip.platform.dal.dao.annotation.Database;
 import com.ctrip.platform.dal.dao.annotation.Sensitive;

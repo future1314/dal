@@ -4,8 +4,10 @@ import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.persistence.Column;
@@ -22,11 +24,11 @@ import com.ctrip.platform.dal.dao.annotation.Sensitive;
 import com.ctrip.platform.dal.dao.annotation.Type;
 import com.ctrip.platform.dal.exceptions.DalException;
 import com.ctrip.platform.dal.exceptions.ErrorCode;
-import org.apache.commons.lang.Validate;
 
 /**
  * 
  * @author gzxia
+ * @modified yn.wang
  * 
  */
 public class EntityManager {
@@ -64,79 +66,146 @@ public class EntityManager {
 
     private <T> EntityManager(Class<T> clazz) throws SQLException {
         this.clazz = clazz;
-        // Field[] allFields = clazz.getDeclaredFields();
-        Field[] allFields = getAllFields(clazz);
+        Class<?> currentClass = clazz;
 
-        if (null == allFields || allFields.length == 0)
+        Map<String, String> columnNamesMap = new HashMap<>(); // Key:column name;Value:class name
+        Set<String> classNameSet = new HashSet<>(); // Used for autoIncrement
+        boolean containsFields = false;
+
+        while (currentClass != null) {
+            String currentClassName = currentClass.getName();
+            Field[] allFields = currentClass.getDeclaredFields();
+
+            // If current class doesn't contain any field,then we continue to try its parent class.
+            if (null == allFields || allFields.length == 0) {
+                currentClass = currentClass.getSuperclass();
+                continue;
+            }
+
+            containsFields = true;
+            processAllFields(currentClassName, allFields, columnNamesMap, classNameSet);
+
+            currentClass = currentClass.getSuperclass();
+        }
+
+        // If child class and its all parent classes(if exist) don't contain any field,then we throw an exception.
+        if (!containsFields)
             throw new SQLException("The entity[" + clazz.getName() + "] has no fields.");
+    }
 
-        for (Field f : allFields) {
-            Column column = f.getAnnotation(Column.class);
-            Id id = f.getAnnotation(Id.class);
+    private void processAllFields(String currentClassName, Field[] allFields, Map<String, String> columnNamesMap,
+            Set<String> classNameSet) throws SQLException {
+
+        for (Field field : allFields) {
+            Column column = field.getAnnotation(Column.class);
+            Id id = field.getAnnotation(Id.class);
             if (column == null && id == null)
                 continue;
 
-            String columnName = (column == null || column.name().trim().length() == 0) ? f.getName() : column.name();
-
-            if (f.getAnnotation(Type.class) == null)
+            if (field.getAnnotation(Type.class) == null)
                 throw new DalException(ErrorCode.TypeNotDefined);
 
-            if (fieldMap.containsKey(columnName))
-                throw new DalException(ErrorCode.DuplicateColumnName);
+            String columnName =
+                    (column == null || column.name().trim().length() == 0) ? field.getName() : column.name();
 
-            f.setAccessible(true);
-            fieldMap.put(columnName, f);
-
-            columnNameList.add(columnName);
-            types.add(f.getAnnotation(Type.class).value());
-
-            if (column == null || column.updatable())
-                updatableColumnList.add(columnName);
-
-            if (column == null || column.insertable())
-                insertableColumnList.add(columnName);
-
-            if (id != null)
-                primaryKeyNameList.add(columnName);
-
-            GeneratedValue generatedValue = f.getAnnotation(GeneratedValue.class);
-            if (!autoIncremental && null != generatedValue && (generatedValue.strategy() == GenerationType.AUTO
-                    || generatedValue.strategy() == GenerationType.IDENTITY))
-                autoIncremental = true;
-
-            if (f.getAnnotation(Id.class) != null && generatedValue != null
-                    && generatedValue.strategy() == GenerationType.AUTO) {
-                identityList.add(f);
+            String tempClassName = columnNamesMap.get(columnName);
+            if (tempClassName != null) {
+                if (tempClassName.equals(currentClassName)) {
+                    throw new DalException(ErrorCode.DuplicateColumnName); // If two fields with same column name are in
+                                                                           // same class,then we throw an exception.
+                } else {
+                    continue; // If two fields with same column name are distributed in different class,then we abandom
+                              // current field.
+                }
             }
 
-            if (f.getAnnotation(Sensitive.class) != null)
-                sensitiveColumnNameList.add(columnName);
+            columnNamesMap.put(columnName, currentClassName);
 
-            if (f.getAnnotation(Version.class) != null) {
-                if (versionColumn != null)
-                    throw new DalException(ErrorCode.MoreThanOneVersionColumn);
+            processField(columnName, field);
+
+            processUpdatableColumn(columnName, column);
+            processInsertableColumn(columnName, column);
+
+            processPrimaryKeyColumn(id, columnName);
+            processAutoIncrementColumn(field, currentClassName, classNameSet);
+
+            processSensitiveColumn(columnName, field);
+            processVersionColumn(columnName, field, currentClassName, columnNamesMap);
+        }
+    }
+
+    private void processField(String columnName, Field field) {
+        field.setAccessible(true);
+        fieldMap.put(columnName, field);
+
+        columnNameList.add(columnName);
+        types.add(field.getAnnotation(Type.class).value());
+    }
+
+    private void processUpdatableColumn(String columnName, Column column) {
+        if (column == null || column.updatable())
+            updatableColumnList.add(columnName);
+    }
+
+    private void processInsertableColumn(String columnName, Column column) {
+        if (column == null || column.insertable())
+            insertableColumnList.add(columnName);
+    }
+
+    private void processPrimaryKeyColumn(Id id, String columnName) {
+        if (id != null)
+            primaryKeyNameList.add(columnName);
+    }
+
+    private void processAutoIncrementColumn(Field field, String currentClassName, Set<String> classNameSet) {
+        GeneratedValue generatedValue = field.getAnnotation(GeneratedValue.class);
+        if (!autoIncremental && null != generatedValue && (generatedValue.strategy() == GenerationType.AUTO
+                || generatedValue.strategy() == GenerationType.IDENTITY))
+            autoIncremental = true;
+
+        if (field.getAnnotation(Id.class) != null && generatedValue != null
+                && generatedValue.strategy() == GenerationType.AUTO) {
+            // first add identity(auto increment)
+            if (classNameSet.isEmpty()) {
+                classNameSet.add(currentClassName);
+                identityList.add(field);
+                return;
+            }
+
+            if (classNameSet.contains(currentClassName)) {
+                identityList.add(field);
+            }
+        }
+    }
+
+    private void processSensitiveColumn(String columnName, Field field) {
+        if (isSensitiveField(field))
+            sensitiveColumnNameList.add(columnName);
+    }
+
+    private boolean isSensitiveField(Field field) {
+        return field.getAnnotation(Sensitive.class) != null;
+    }
+
+    private void processVersionColumn(String columnName, Field field, String currentClassName,
+            Map<String, String> columnNamesMap) throws SQLException {
+        if (isVersionField(field)) {
+            if (versionColumn == null) {
                 versionColumn = columnName;
+                return;
+            }
+
+            String versionClassName = columnNamesMap.get(versionColumn);
+            if (versionClassName.equals(currentClassName)) {
+                throw new DalException(ErrorCode.MoreThanOneVersionColumn); // If one class has more than
+                                                                            // one Version column,then we throw an
+                                                                            // exception.
             }
         }
     }
 
-    private Field[] getAllFields(Class<?> cls) {
-        final List<Field> allFieldsList = getAllFieldsList(cls);
-        return allFieldsList.toArray(new Field[allFieldsList.size()]);
-    }
-
-    private List<Field> getAllFieldsList(Class<?> cls) {
-        Validate.isTrue(cls != null, "The class must not be null");
-        final List<Field> allFields = new ArrayList<Field>();
-        Class<?> currentClass = cls;
-        while (currentClass != null) {
-            final Field[] declaredFields = currentClass.getDeclaredFields();
-            for (Field field : declaredFields) {
-                allFields.add(field);
-            }
-            currentClass = currentClass.getSuperclass();
-        }
-        return allFields;
+    private boolean isVersionField(Field field) {
+        return field.getAnnotation(Version.class) != null;
     }
 
     public String getDatabaseName() throws DalException {

@@ -3,20 +3,30 @@ package com.ctrip.platform.dal.dao.helper.EntityManagerTest;
 import com.ctrip.platform.dal.dao.KeyHolder;
 import com.ctrip.platform.dal.dao.helper.EntityManager;
 import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Dao.ChildwithallfieldsDao;
-import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.Child;
-import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.ChildWithAllFields;
-import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.GrandParent;
-import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.Parent;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.Inheritance.Child;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.Inheritance.ChildWithAllFields;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.MultiAutoIncrementInDifferentClass.ChildWithAutoIncrement;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.MultiAutoIncrementOnlyInGrandParentClass.ChildWithoutAutoIncrement;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.MultiVersionInDifferentClass.ChildWithVersion;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.MultiVersionOnlyInGrandParentClass.ChildWithOutVersion;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.SameColumnNameInDifferentClass.ChildWithNameValueForColumn;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.SameColumnNameInSameClass.ChildWithSameColumnName;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.Inheritance.GrandParent;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.Inheritance.Parent;
+import com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.MultiVersionInSameClass.ChildWithMultiVersion;
+
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class EntityManagerTest {
     private static EntityManagerInitializer initializer = new EntityManagerInitializer();
@@ -519,6 +529,92 @@ public class EntityManagerTest {
         pojo.setChildName("ChildName");
 
         return pojo;
+    }
+
+
+    // 同一个类中的字段有相同的Column name，抛出异常
+    @Test
+    public void testSameColumnNameInSameClass() throws SQLException {
+        try {
+            EntityManager entity = EntityManager.getEntityManager(ChildWithSameColumnName.class);
+            Assert.fail();
+        } catch (Exception e) {
+            Assert.assertTrue(e.getMessage().equals("Column name is already used by other field"));
+        }
+    }
+
+    // 不同类中的字段有相同的Column name，取子类的字段
+    @Test
+    public void testSameColumnNameInDifferentClass() throws SQLException {
+        try {
+            EntityManager entity = EntityManager.getEntityManager(ChildWithNameValueForColumn.class);
+            Map<String, Field> map = entity.getFieldMap();
+            Assert.assertTrue(map.size() == 1);
+            Assert.assertTrue(map.get("Name").getName().equals("childName"));
+        } catch (Exception e) {
+            Assert.fail();
+        }
+    }
+
+    // 同一个类中有多于一个Version 字段，抛出异常
+    @Test
+    public void testMultiVersionInSameClass() throws SQLException {
+        try {
+            EntityManager entity = EntityManager.getEntityManager(ChildWithMultiVersion.class);
+            Assert.fail();
+        } catch (Exception e) {
+            Assert.assertTrue(e.getMessage().equals("The entity contains more than one version annotation"));
+        }
+    }
+
+    // 子类，父类中都有Version字段，取子类的Version字段
+    @Test
+    public void testMultiVersionInBothClass() throws SQLException {
+        try {
+            EntityManager entity = EntityManager.getEntityManager(ChildWithVersion.class);
+            String columnName = entity.getVersionColumn();
+            Assert.assertTrue(columnName.equals("childName"));
+        } catch (Exception e) {
+            Assert.fail();
+        }
+    }
+
+    // 子类没有Version字段，父类有Version字段，取父类的Version字段
+    @Test
+    public void testVersionOnlyInParentClass() throws SQLException {
+        try {
+            EntityManager entity = EntityManager.getEntityManager(ChildWithOutVersion.class);
+            String columnName = entity.getVersionColumn();
+            Assert.assertTrue(columnName.equals("grandParentName"));
+        } catch (Throwable e) {
+            Assert.fail();
+        }
+    }
+
+    // 子类，父类都有自增主键字段，取子类的自增主键字段
+    @Test
+    public void testMultiAutoIncrementInBothClass() throws SQLException {
+        try {
+            EntityManager entity = EntityManager.getEntityManager(ChildWithAutoIncrement.class);
+            Field[] fields = entity.getIdentity();
+            Assert.assertTrue(fields.length == 1);
+            Assert.assertTrue(fields[0].getName().equals("childId"));
+        } catch (Exception e) {
+            Assert.fail();
+        }
+    }
+
+    //子类没有自增主键，父类有自增主键，去父类的自增主键
+    @Test
+    public void testAutoIncrementOnlyInParentClass() throws SQLException {
+        try {
+            EntityManager entity = EntityManager.getEntityManager(ChildWithoutAutoIncrement.class);
+            Field[] fields = entity.getIdentity();
+            Assert.assertTrue(fields.length == 1);
+            Assert.assertTrue(fields[0].getName().equals("grandParentId"));
+        } catch (Exception e) {
+            Assert.fail();
+        }
     }
 
 }

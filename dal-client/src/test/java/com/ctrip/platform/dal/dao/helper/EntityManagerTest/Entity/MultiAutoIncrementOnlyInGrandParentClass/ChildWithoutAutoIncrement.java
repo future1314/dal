@@ -1,4 +1,4 @@
-package com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity;
+package com.ctrip.platform.dal.dao.helper.EntityManagerTest.Entity.MultiAutoIncrementOnlyInGrandParentClass;
 
 import com.ctrip.platform.dal.dao.annotation.Database;
 import com.ctrip.platform.dal.dao.annotation.Sensitive;
@@ -10,25 +10,14 @@ import javax.persistence.Table;
 import java.sql.Types;
 
 @Entity
-@Database(name = "dao_test")
-@Table(name = "ChildWithAllFields")
-public class ChildWithAllFields extends ParentWithoutId {
-    @Column(name = "childId")
-    @Type(value = Types.INTEGER)
-    private int childId;
+@Database(name = "ChildDatabase")
+@Table(name = "ChildTable")
+public class ChildWithoutAutoIncrement extends ParentWithoutAutoIncrement {
 
     @Column(name = "childName")
     @Type(value = Types.VARCHAR)
     @Sensitive(value = true)
     private String childName;
-
-    public int getChildId() {
-        return childId;
-    }
-
-    public void setChildId(int childId) {
-        this.childId = childId;
-    }
 
     public String getChildName() {
         return childName;
@@ -38,4 +27,3 @@ public class ChildWithAllFields extends ParentWithoutId {
         this.childName = childName;
     }
 }
-
