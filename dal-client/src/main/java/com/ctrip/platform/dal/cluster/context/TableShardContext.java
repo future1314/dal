@@ -10,6 +10,8 @@ import java.util.Map;
  */
 public interface TableShardContext {
 
+    int getShardIndex();
+
     String getTargetTableName();
 
     Map<Integer, NamedSqlParameters> getIndexedRowSet();

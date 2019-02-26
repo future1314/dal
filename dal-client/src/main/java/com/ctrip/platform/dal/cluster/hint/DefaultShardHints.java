@@ -15,12 +15,12 @@ public class DefaultShardHints implements ShardHints {
 
     @Override
     public Shards getDbShards() {
-        return null;
+        return dbShards;
     }
 
     @Override
     public Shards getTableShards() {
-        return null;
+        return tableShards;
     }
 
 }

@@ -11,7 +11,7 @@ import java.util.Set;
  */
 public interface DatabaseShardContext {
 
-    String getShardId();
+    int getShardIndex();
 
     DataSource getDataSource(OperationType operation);
 

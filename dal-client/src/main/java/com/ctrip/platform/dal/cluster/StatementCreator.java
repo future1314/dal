@@ -20,6 +20,12 @@ import java.util.Set;
  */
 public class StatementCreator {
 
+    public PreparedStatement prepareStatement(Connection conn, String sql, Object[] paramValues, int[] paramTypes) throws SQLException {
+        PreparedStatement statement = conn.prepareStatement(sql);
+        setParameters(statement, paramValues, paramTypes);
+        return statement;
+    }
+
     public PreparedStatement prepareStatement(Connection conn, String sql, IndexedSqlParameters parameters) throws SQLException {
         PreparedStatement statement = conn.prepareStatement(sql);
         setParameters(statement, parameters);
@@ -45,6 +51,18 @@ public class StatementCreator {
         PreparedStatement statement = conn.prepareStatement(sql);
         setParameters(statement, parameters);
         return statement;
+    }
+
+    public void setParameters(PreparedStatement statement, Object[] paramValues, int[] paramTypes) {
+        if (paramTypes != null && paramValues.length != paramTypes.length) {
+            throw new DalClusterException("Count of param values and types mismatches");
+        }
+        if (paramTypes != null)
+            for (int i = 0; i < paramValues.length; i++)
+                setObject(statement, i + 1, paramValues[i], paramTypes[i]);
+        else
+            for (int i = 0; i < paramValues.length; i++)
+                setObject(statement, i + 1, paramValues[i]);
     }
 
     public void setParameters(PreparedStatement statement, IndexedSqlParameters parameters) {
@@ -77,6 +95,14 @@ public class StatementCreator {
             } else {
                 statement.setObject(parameter.getIndex(), parameter.getParamValue(), parameter.getSqlType());
             }
+        } catch (Throwable e) {
+            throw new DalClusterException(e);
+        }
+    }
+
+    public void setObject(PreparedStatement statement, int index, Object value) {
+        try {
+            statement.setObject(index, value);
         } catch (Throwable e) {
             throw new DalClusterException(e);
         }

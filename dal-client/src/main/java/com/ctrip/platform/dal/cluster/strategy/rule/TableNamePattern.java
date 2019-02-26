@@ -5,6 +5,6 @@ package com.ctrip.platform.dal.cluster.strategy.rule;
  */
 public interface TableNamePattern extends Forkable<TableNamePattern> {
 
-    String getTargetTableName(String logicTableName, String shardId);
+    String getTargetTableName(String logicTableName, int shardId);
 
 }

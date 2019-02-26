@@ -11,8 +11,14 @@ import java.util.Map;
  */
 public class TableShardContextImp implements TableShardContext {
 
+    private int shardIndex;
     private String targetTableName;
     private Map<Integer, NamedSqlParameters> indexedRowSet = new HashMap<>();
+
+    @Override
+    public int getShardIndex() {
+        return shardIndex;
+    }
 
     @Override
     public String getTargetTableName() {
@@ -22,6 +28,10 @@ public class TableShardContextImp implements TableShardContext {
     @Override
     public Map<Integer, NamedSqlParameters> getIndexedRowSet() {
         return indexedRowSet;
+    }
+
+    public void setShardIndex(int shardIndex) {
+        this.shardIndex = shardIndex;
     }
 
     public void setTargetTableName(String targetTableName) {

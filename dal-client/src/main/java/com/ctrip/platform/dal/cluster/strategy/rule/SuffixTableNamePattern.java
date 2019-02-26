@@ -14,11 +14,11 @@ public class SuffixTableNamePattern implements TableNamePattern {
     private int digit = 0;
 
     @Override
-    public String getTargetTableName(String logicTableName, String shardId) {
-        if (shardId == null || shardId.isEmpty() || digit == 0)
+    public String getTargetTableName(String logicTableName, int shardId) {
+        if (digit == 0)
             return logicTableName;
         String format = String.format("%%0%dd", digit);
-        String suffix = String.format(format, Integer.parseInt(shardId));
+        String suffix = String.format(format, shardId);
         return logicTableName + separator + suffix;
     }
 

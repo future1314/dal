@@ -15,7 +15,7 @@ public class DatabaseShardContextImp implements DatabaseShardContext {
     private Set<TableShardContext> tableShardContexts = new HashSet<>();
 
     @Override
-    public String getShardId() {
+    public int getShardIndex() {
         return databaseShard.getShardIndex();
     }
 

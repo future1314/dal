@@ -9,19 +9,19 @@ import java.util.Set;
  */
 public class UserDefinedShards implements Shards {
 
-    private Set<String> shardIds;
+    private Set<Integer> shardIndexes;
 
-    public UserDefinedShards(Collection<String> shardIds) {
-        this.shardIds = new HashSet<>(shardIds);
+    public UserDefinedShards(Collection<Integer> shardIds) {
+        this.shardIndexes = new HashSet<>(shardIds);
     }
 
-    public UserDefinedShards(String shardId) {
-        shardIds = new HashSet<>();
-        shardIds.add(shardId);
+    public UserDefinedShards(int shardId) {
+        shardIndexes = new HashSet<>();
+        shardIndexes.add(shardId);
     }
 
-    public Set<String> getShards() {
-        return new HashSet<>(shardIds);
+    public Set<Integer> getShards() {
+        return new HashSet<>(shardIndexes);
     }
 
 }

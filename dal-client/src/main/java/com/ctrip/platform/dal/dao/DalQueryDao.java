@@ -28,7 +28,7 @@ import com.ctrip.platform.dal.dao.task.*;
 public final class DalQueryDao extends BaseTaskAdapter {
 	private static final boolean NULLABLE = true;
 	private DalRequestExecutor executor;
-	Cluster cluster;
+	private Cluster cluster;
 	private DalClusterRequestExecutor clusterExecutor = new DalClusterRequestExecutor();
 
 	public DalQueryDao(String logicDbName) {
@@ -75,6 +75,11 @@ public final class DalQueryDao extends BaseTaskAdapter {
 	public <T> List<T> query(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz) 
 			throws SQLException {
 		return query(new FreeSelectSqlBuilder<List<T>>().setTemplate(sql).mapWith(getMapper(clazz)), parameters, hints);
+	}
+
+	public <T> List<T> queryCluster(String sql, StatementParameters parameters, DalHints hints, Class<T> clazz)
+			throws SQLException {
+		return queryCluster(new FreeSelectSqlBuilder<List<T>>().setTemplate(sql).mapWith(getMapper(clazz)), parameters, hints);
 	}
 
 	/**

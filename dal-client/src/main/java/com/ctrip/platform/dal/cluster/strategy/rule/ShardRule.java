@@ -10,10 +10,10 @@ import java.util.Map;
  */
 public interface ShardRule extends Forkable<ShardRule> {
 
-    String shardByValue(Object value);
+    int shardByValue(Object value);
 
-    String shardByColumnValue(String columnName, Object columnValue);
+    int shardByColumnValue(String columnName, Object columnValue);
 
-    String shardByFields(NamedSqlParameters fields);
+    int shardByFields(NamedSqlParameters fields);
 
 }

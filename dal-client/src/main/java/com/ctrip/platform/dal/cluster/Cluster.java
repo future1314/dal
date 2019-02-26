@@ -19,7 +19,14 @@ public interface Cluster {
 
     String getClusterName();
 
-    // 实现拼SQL接口，需要注册实现类
+    /*
+     * 1.SQL构建接口定义，实现类注册
+     * 2.Query异步接口
+     * 3.Indexed params使用数组结构传参
+     * 4.update/delete/replace接口
+     * 5.返回主键
+     * 6.combinedInsert事务说明
+     */
 
     int insert(String logicTableName, NamedSqlParameters insertRow) throws SQLException;
 
@@ -29,14 +36,16 @@ public interface Cluster {
 
     int[] batchInsert(String logicTableName, NamedSqlParameters[] insertRows) throws SQLException;
 
-    ResultSet query(String logicTableName, String[] selectColumns, String paramName, Object paramValue) throws SQLException;
+    void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue, ResultHandler rh) throws SQLException;
 
-    void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue, RouteHints routeHints) throws SQLException;
+    void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue, RouteHints routeHints, ResultHandler rh) throws SQLException;
 
-    ResultSet query(String logicTableName, String[] selectColumns, NamedSqlParameters params) throws SQLException;
+    void query(String logicTableName, String[] selectColumns, NamedSqlParameters params, ResultHandler rh) throws SQLException;
 
-    void query(String logicTableName, String[] selectColumns, NamedSqlParameters params, RouteHints routeHints) throws SQLException;
+    void query(String logicTableName, String[] selectColumns, NamedSqlParameters params, RouteHints routeHints, ResultHandler rh) throws SQLException;
 
-    Map<String, ResultSet> query(String sqlTemplate, IndexedSqlParameters params, RouteHints routeHints) throws SQLException;
+    void query(String sql, Object[] paramValues, RouteHints routeHints, ResultHandler rh) throws SQLException;
+
+    void query(String sql, Object[] paramValues, int[] paramTypes, RouteHints routeHints, ResultHandler rh) throws SQLException;
 
 }

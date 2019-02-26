@@ -28,7 +28,7 @@ public class DalCluster implements Cluster {
 
     private final String clusterName;
     private DatabaseCategory databaseCategory;
-    private Map<String, DatabaseShard> databaseShards = new HashMap<>();
+    private Map<Integer, DatabaseShard> databaseShards = new HashMap<>();
     private Map<String, LogicTable> logicTables = new HashMap<>();
     private ShardRule dbShardRule;
     private ShardRule tableShardRule;
@@ -83,7 +83,7 @@ public class DalCluster implements Cluster {
     }
 
     @Override
-    public ResultSet query(String logicTableName, String[] selectColumns, String paramName, Object paramValue) throws SQLException {
+    public void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue, ResultHandler rh) throws SQLException {
         NamedSqlParametersImp parameters = new NamedSqlParametersImp();
         parameters.add(paramName, paramValue);
         Set<DatabaseShardContext> dbCtxs = shard(logicTableName, parameters);
@@ -93,16 +93,16 @@ public class DalCluster implements Cluster {
         String targetTableName = tbCtx.getTargetTableName();
         String sql = databaseCategory.buildQuerySql(targetTableName, selectColumns, parameters);
         PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sql, parameters);
-        return ps.executeQuery();
+        rh.execute(dbCtx.getShardIndex(), tbCtx.getShardIndex(), ps.executeQuery());
+        rh.complete();
     }
 
     @Override
-    public void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue, RouteHints routeHints) throws SQLException {
-
+    public void query(String logicTableName, String[] selectColumns, String paramName, Object paramValue, RouteHints routeHints, ResultHandler rh) throws SQLException {
     }
 
     @Override
-    public ResultSet query(String logicTableName, String[] selectColumns, NamedSqlParameters params) throws SQLException {
+    public void query(String logicTableName, String[] selectColumns, NamedSqlParameters params, ResultHandler rh) throws SQLException {
         Set<DatabaseShardContext> dbCtxs = shard(logicTableName, params);
         DatabaseShardContext dbCtx = dbCtxs.iterator().next();
         DataSource ds = dbCtx.getDataSource(OperationType.QUERY);
@@ -110,41 +110,52 @@ public class DalCluster implements Cluster {
         String targetTableName = tbCtx.getTargetTableName();
         String sql = databaseCategory.buildQuerySql(targetTableName, selectColumns, params);
         PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sql, params);
-        return ps.executeQuery();
+        rh.execute(dbCtx.getShardIndex(), tbCtx.getShardIndex(), ps.executeQuery());
+        rh.complete();
     }
 
     @Override
-    public void query(String logicTableName, String[] selectColumns, NamedSqlParameters params, RouteHints routeHints) throws SQLException {
-
+    public void query(String logicTableName, String[] selectColumns, NamedSqlParameters params, RouteHints routeHints, ResultHandler rh) throws SQLException {
     }
 
     @Override
-    public Map<String, ResultSet> query(String sqlTemplate, IndexedSqlParameters params, RouteHints routeHints) throws SQLException {
-        Map<String, ResultSet> results = new HashMap<>();
+    public void query(String sql, Object[] paramValues, RouteHints routeHints, ResultHandler rh) throws SQLException {
+        query(sql, paramValues, null, routeHints, rh);
+    }
+
+    @Override
+    public void query(String sql, Object[] paramValues, int[] paramTypes, RouteHints routeHints, ResultHandler rh) throws SQLException {
         Shards shards = routeHints.getDbShards();
         if (shards instanceof UserDefinedShards) {
             UserDefinedShards definedShards = (UserDefinedShards) shards;
-            Set<String> shardIds = definedShards.getShards();
-            for (String shardId : shardIds) {
+            Set<Integer> shardIds = definedShards.getShards();
+            for (int shardId : shardIds) {
                 DataSource ds = databaseShards.get(shardId).selectSlave().getDataSource();
-                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sqlTemplate, params);
+                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sql, paramValues, paramTypes);
                 ResultSet rs = ps.executeQuery();
-                results.put(shardId, rs);
+                rh.execute(shardId, -1, rs);
             }
+            rh.complete();
         } else if (shards instanceof AllShards) {
+            for (int shardId : databaseShards.keySet()) {
+                DataSource ds = databaseShards.get(shardId).selectSlave().getDataSource();
+                PreparedStatement ps = stmtCreator.prepareStatement(ds.getConnection(), sql, paramValues, paramTypes);
+                ResultSet rs = ps.executeQuery();
+                rh.execute(shardId, -1, rs);
+            }
+            rh.complete();
         }
-        return results;
     }
 
     private Set<DatabaseShardContext> shard(String logicTableName, NamedSqlParameters[] rowSet) {
         ShardRule dbShardRule = getDbShardRule(logicTableName);
         ShardRule tableShardRule = getTableShardRule(logicTableName);
-        Map<String, Map<String, Map<Integer, NamedSqlParameters>>> shuffled = new HashMap<>();
+        Map<Integer, Map<Integer, Map<Integer, NamedSqlParameters>>> shuffled = new HashMap<>();
         int rowIndex = 0;
         for (NamedSqlParameters row : rowSet) {
-            String dbShardId = dbShardRule.shardByFields(row);
-            String tbShardId = tableShardRule.shardByFields(row);
-            Map<String, Map<Integer, NamedSqlParameters>> tbShards = shuffled.get(dbShardId);
+            int dbShardId = dbShardRule.shardByFields(row);
+            int tbShardId = tableShardRule.shardByFields(row);
+            Map<Integer, Map<Integer, NamedSqlParameters>> tbShards = shuffled.get(dbShardId);
             if (tbShards == null) {
                 tbShards = new HashMap<>();
                 shuffled.put(dbShardId, tbShards);
@@ -162,10 +173,10 @@ public class DalCluster implements Cluster {
     private Set<DatabaseShardContext> shard(String logicTableName, NamedSqlParameters params) {
         ShardRule dbShardRule = getDbShardRule(logicTableName);
         ShardRule tableShardRule = getTableShardRule(logicTableName);
-        Map<String, Map<String, Map<Integer, NamedSqlParameters>>> shuffled = new HashMap<>();
-        String dbShardId = dbShardRule.shardByFields(params);
-        String tbShardId = tableShardRule.shardByFields(params);
-        Map<String, Map<Integer, NamedSqlParameters>> tbShards = shuffled.get(dbShardId);
+        Map<Integer, Map<Integer, Map<Integer, NamedSqlParameters>>> shuffled = new HashMap<>();
+        int dbShardId = dbShardRule.shardByFields(params);
+        int tbShardId = tableShardRule.shardByFields(params);
+        Map<Integer, Map<Integer, NamedSqlParameters>> tbShards = shuffled.get(dbShardId);
         if (tbShards == null) {
             tbShards = new HashMap<>();
             shuffled.put(dbShardId, tbShards);
@@ -206,16 +217,17 @@ public class DalCluster implements Cluster {
         return pattern != null ? pattern : tableNamePattern;
     }
 
-    private Set<DatabaseShardContext> buildContext(Map<String, Map<String, Map<Integer, NamedSqlParameters>>> shuffled,
+    private Set<DatabaseShardContext> buildContext(Map<Integer, Map<Integer, Map<Integer, NamedSqlParameters>>> shuffled,
                                                    String logicTableName) {
         Set<DatabaseShardContext> ctx = new HashSet<>();
         TableNamePattern pattern = getTableNamePattern(logicTableName);
-        for (String dbShardId : shuffled.keySet()) {
+        for (int dbShardId : shuffled.keySet()) {
             DatabaseShardContextImp dbCtx = new DatabaseShardContextImp();
             dbCtx.setDatabaseShard(databaseShards.get(dbShardId));
-            Map<String, Map<Integer, NamedSqlParameters>> tbShards = shuffled.get(dbShardId);
-            for (String tbShardId : tbShards.keySet()) {
+            Map<Integer, Map<Integer, NamedSqlParameters>> tbShards = shuffled.get(dbShardId);
+            for (int tbShardId : tbShards.keySet()) {
                 TableShardContextImp tbCtx = new TableShardContextImp();
+                tbCtx.setShardIndex(tbShardId);
                 tbCtx.setTargetTableName(pattern.getTargetTableName(logicTableName, tbShardId));
                 Map<Integer, NamedSqlParameters> tbShard = tbShards.get(tbShardId);
                 for (Integer index : tbShard.keySet())

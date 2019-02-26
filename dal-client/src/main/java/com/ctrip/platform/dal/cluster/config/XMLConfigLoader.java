@@ -132,7 +132,7 @@ public abstract class XMLConfigLoader implements ConfigLoader, XMLConfigConstant
     private DatabaseShard loadDatabaseShard(Node databaseShardNode) throws Exception {
         String id = getAttribute(databaseShardNode, ID);
         assertNotNull(id, String.format("Attribute '%s' of Element <%s> not found", ID, DATABASE_SHARD));
-        DefaultDatabaseShard databaseShard = new DefaultDatabaseShard(id);
+        DefaultDatabaseShard databaseShard = new DefaultDatabaseShard(Integer.parseInt(id));
         List<Node> databaseNodes = getChildNodes(databaseShardNode, DATABASE);
         assertNotEmpty(databaseNodes, String.format("Element <%s> not found", DATABASE));
         for (Node databaseNode : databaseNodes)

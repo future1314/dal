@@ -23,12 +23,12 @@ public class RouteHintsBuilder {
         return this;
     }
 
-    public RouteHintsBuilder setDbShards(String... shards) {
+    public RouteHintsBuilder setDbShards(Integer... shards) {
         dbShards = new UserDefinedShards(Arrays.asList(shards));
         return this;
     }
 
-    public RouteHintsBuilder setTableShards(String... shards) {
+    public RouteHintsBuilder setTableShards(Integer... shards) {
         tableShards = new UserDefinedShards(Arrays.asList(shards));
         return this;
     }

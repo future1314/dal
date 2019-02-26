@@ -11,16 +11,16 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class DefaultDatabaseShard implements DatabaseShard {
 
-    private String shardIndex;
+    private int shardIndex;
     private Database master;
     private List<Database> slaves = new ArrayList<>();
 
-    public DefaultDatabaseShard(String shardIndex) {
+    public DefaultDatabaseShard(int shardIndex) {
         this.shardIndex = shardIndex;
     }
 
     @Override
-    public String getShardIndex() {
+    public int getShardIndex() {
         return shardIndex;
     }
 

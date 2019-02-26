@@ -19,19 +19,19 @@ public class ModShardRule implements ShardRule {
     private String shardKey;
 
     @Override
-    public String shardByValue(Object value) {
+    public int shardByValue(Object value) {
         if (value == null)
             throw new DalClusterException("Shard value cannot be found");
         try {
             Number shardValueNumber = (Number) value;
-            return String.valueOf(shardValueNumber.longValue() % mod);
+            return (int) shardValueNumber.longValue() % mod;
         } catch (Throwable t) {
             throw new DalClusterException("Shard value is not a number", t);
         }
     }
 
     @Override
-    public String shardByColumnValue(String columnName, Object columnValue) {
+    public int shardByColumnValue(String columnName, Object columnValue) {
         if (columnName == null)
             throw new DalClusterException("Column name invalid");
         if (!columnName.equalsIgnoreCase(shardKey))
@@ -40,8 +40,8 @@ public class ModShardRule implements ShardRule {
     }
 
     @Override
-    public String shardByFields(NamedSqlParameters params) {
-        if (mod == 1) return "0";
+    public int shardByFields(NamedSqlParameters params) {
+        if (mod == 1) return 0;
         return shardByValue(params.getParamValue(shardKey));
     }
 

@@ -91,7 +91,9 @@ public class DalClientFactory {
 
             configureRef.set(config);
 
-            clusterLocatorRef.set(new LocalConfigLoader().load());
+            ClusterLocator clusterLocator = new ClusterLocator(new LocalConfigLoader());
+            clusterLocator.initialize();
+            clusterLocatorRef.set(clusterLocator);
         }
     }
 
